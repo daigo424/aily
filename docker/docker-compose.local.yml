@@ -1,0 +1,118 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/local.Dockerfile
+    container_name: api
+    working_dir: /app
+    volumes:
+      - ..:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PYTHONPATH: /app/src
+      TZ: Asia/Tokyo
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+
+  admin:
+    build:
+      context: ..
+      dockerfile: docker/local.Dockerfile
+    container_name: admin
+    working_dir: /app
+    volumes:
+      - ..:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PYTHONPATH: /app/src
+      TZ: Asia/Tokyo
+    ports:
+      - "8501:8501"
+    command: streamlit run src/apps/admin/main.py --server.address=0.0.0.0 --server.port=8501
+
+  demoseed:
+    build:
+      context: ..
+      dockerfile: docker/local.Dockerfile
+    container_name: demoseed
+    working_dir: /app
+    volumes:
+      - ..:/app
+      - ../files:/files
+    environment:
+      PYTHONPATH: /app/src
+      TZ: Asia/Tokyo
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: pgvector_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: healthcheck_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_pass
+      TZ: Asia/Tokyo
+      PGTZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d healthcheck_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  db_dev:
+    image: pgvector/pgvector:pg17
+    container_name: pgvector_dev_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: healthcheck_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_pass
+      TZ: Asia/Tokyo
+      PGTZ: Asia/Tokyo
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d healthcheck_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  atlas:
+    build:
+      context: ..
+      dockerfile: docker/atlas.Dockerfile
+    container_name: atlas_cli
+    working_dir: /workspace
+    volumes:
+      - ../db:/workspace
+    env_file:
+      - ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+      db_dev:
+        condition: service_healthy
+    environment:
+      ATLAS_NO_UPDATE_NOTIFIER: "1"
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
+    name: aily_pgdata

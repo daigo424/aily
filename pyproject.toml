@@ -1,0 +1,73 @@
+[project]
+name = "aily"
+version = "0.1.0"
+dependencies = [
+    "fastapi==0.115.12",
+    "google-genai>=1.55.0",
+    "pgvector==0.4.1",
+    "psycopg2-binary>=2.9.11",
+    "psycopg[binary]==3.1.19",
+    "pydantic==2.11.3",
+    "pydantic-settings==2.8.1",
+    "pydevd-pycharm>=261.23567.35",
+    "python-dotenv==1.0.1",
+    "python-multipart==0.0.20",
+    "requests==2.32.3",
+    "sqlalchemy>=2.0",
+    "streamlit>=1.56.0",
+    "uvicorn[standard]==0.34.0",
+]
+
+[tool.ruff]
+line-length = 170
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # pyflakes
+    "I",  # organize import
+]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = ["src"]
+ignore_missing_imports = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["apps.api.*", "packages.core.*"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
+
+[dependency-groups]
+dev = [
+    "debugpy==1.8.1",
+    "fastapi==0.115.12",
+    "google-genai>=1.55.0",
+    "mypy==1.18.2",
+    "pgvector==0.4.1",
+    "psycopg2-binary>=2.9.11",
+    "psycopg[binary]==3.1.19",
+    "pydantic==2.11.3",
+    "pydantic-settings==2.8.1",
+    "pytest==8.4.1",
+    "python-dotenv==1.0.1",
+    "python-multipart==0.0.20",
+    "requests==2.32.3",
+    "ruff==0.13.0",
+    "sqlalchemy==2.0.30",
+    "streamlit>=1.56.0",
+    "types-requests==2.31.0.20240406",
+    "uvicorn[standard]==0.34.0",
+]
