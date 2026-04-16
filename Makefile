@@ -52,6 +52,9 @@ lint-fix:
 test:
 	$(RUN) app python -m pytest
 
+draw-graph:
+	$(RUN) app python scripts/draw_graph.py
+
 publish:
 	ngrok http --domain=$(LOCAL_PUBLISH_DOMAIN) 8000
 

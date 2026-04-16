@@ -24,4 +24,4 @@ class Settings(BaseSettings):
         return f"postgresql://{self.app_db_username}:{self.app_db_password}@{self.app_db_host}:{self.app_db_port}/{self.app_db_name}"
 
 
-settings = Settings() # type: ignore[call-arg]
+settings = Settings()  # type: ignore[call-arg]
