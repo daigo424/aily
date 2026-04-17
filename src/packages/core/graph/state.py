@@ -1,9 +1,14 @@
-from typing import Any
+from typing import Annotated, Any
 
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 
 class BookingState(TypedDict):
+    # Conversation history — accumulated across turns via checkpointer
+    messages: Annotated[list[BaseMessage], add_messages]
+
     # Per-turn inputs
     text_body: str | None
     sender: str

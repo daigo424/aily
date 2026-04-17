@@ -1,3 +1,4 @@
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -63,7 +64,8 @@ def build_graph() -> CompiledStateGraph:
     g.add_edge("handle_booking_intent", END)
     g.add_edge("handle_other_intent", END)
 
-    return g.compile()
+    checkpointer = MemorySaver()
+    return g.compile(checkpointer=checkpointer)
 
 
 booking_graph: CompiledStateGraph = build_graph()

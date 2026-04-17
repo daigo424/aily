@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, Response
+from langchain_core.messages import HumanMessage
 from sqlalchemy.orm import Session
 
 from packages.core.config import settings
@@ -107,6 +108,7 @@ async def receive_webhook(request: Request) -> dict:
                     )
 
                     initial_state = BookingState(
+                        messages=[HumanMessage(content=text_body or "")],
                         text_body=text_body,
                         sender=sender,
                         customer_id=customer.id,
@@ -123,6 +125,7 @@ async def receive_webhook(request: Request) -> dict:
                         initial_state,
                         config={
                             "configurable": {
+                                "thread_id": str(conversation.id),
                                 "repo": repo,
                                 "conversation": conversation,
                                 "source_message": saved_message,

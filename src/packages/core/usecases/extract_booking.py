@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+
 from packages.core.config import settings
 from packages.core.infrastructure import llm
 from packages.core.schemas import BookingExtraction
@@ -9,13 +11,36 @@ from packages.core.schemas import BookingExtraction
 TZ = ZoneInfo(settings.timezone)
 
 
-def execute(text: str) -> dict[str, Any]:
+def _format_history(messages: list[BaseMessage]) -> str:
+    if not messages:
+        return ""
+    lines = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            lines.append(f"[ユーザー]: {msg.content}")
+        elif isinstance(msg, AIMessage):
+            lines.append(f"[アシスタント]: {msg.content}")
+    return "\n".join(lines)
+
+
+def execute(text: str, history: list[BaseMessage] | None = None) -> dict[str, Any]:
     now_text = datetime.now(tz=TZ).strftime("%Y-%m-%d %H:%M")
+    history_section = ""
+    if history:
+        formatted = _format_history(history)
+        if formatted:
+            history_section = f"""
+過去の会話履歴:
+{formatted}
+
+"""
+
     prompt = f"""
 あなたはIT請負開発の相談予約受付AIです。現在日時は {now_text}（{settings.timezone}）です。
 相談予約は 1 回 1 時間の枠で受け付けています。
-
+{history_section}
 以下のWhatsAppメッセージからユーザーの意図と相談予約情報を抽出し、返答文を生成してください。
+過去の会話履歴がある場合は、その文脈を踏まえて解釈してください。
 
 intent の選び方:
 - 日付・時間のいずれかが含まれていれば "book_reservation"
@@ -38,7 +63,7 @@ reply: ユーザーへの返答文。以下のルールで生成すること。
 - intent が "smalltalk" であれば予約受付サービスの案内
 - それ以外はIT開発相談の予約を促す案内
 
-メッセージ:
+現在のメッセージ:
 {text}
 """
     response = llm.client.gen_json(

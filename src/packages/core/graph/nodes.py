@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import cast
 from zoneinfo import ZoneInfo
 
+from langchain_core.messages import AIMessage
 from langgraph.types import RunnableConfig
 
 from packages.core.config import settings
@@ -31,19 +32,22 @@ def _source_message(config: RunnableConfig) -> Message:
 # ---------------------------------------------------------------------------
 
 
-def llm_extraction_node(state: BookingState, config: RunnableConfig) -> BookingState:
+def llm_extraction_node(state: BookingState, config: RunnableConfig) -> dict:
     text_body = state["text_body"]
     if not text_body:
-        return {**state, "gemini_result": {}, "intent": ConversationIntent.UNKNOWN}
+        return {"gemini_result": {}, "intent": ConversationIntent.UNKNOWN}
 
-    gemini_result = extract_booking.execute(text_body)
+    # state["messages"] には今回の HumanMessage がすでに含まれているため、
+    # それより前のメッセージを履歴として渡す
+    prior_messages = state.get("messages", [])[:-1]
+    gemini_result = extract_booking.execute(text_body, history=prior_messages)
     intent = gemini_result.get("intent", ConversationIntent.UNKNOWN)
 
     conversation = _conversation(config)
     conversation.current_intent = intent
     conversation.state = gemini_result
 
-    return {**state, "gemini_result": gemini_result, "intent": intent}
+    return {"gemini_result": gemini_result, "intent": intent}
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +55,7 @@ def llm_extraction_node(state: BookingState, config: RunnableConfig) -> BookingS
 # ---------------------------------------------------------------------------
 
 
-def handle_cancel_selection_node(state: BookingState, config: RunnableConfig) -> BookingState:
+def handle_cancel_selection_node(state: BookingState, config: RunnableConfig) -> dict:
     repo = _repo(config)
     conversation = _conversation(config)
     pending_ids = state["pending_cancel_ids"]
@@ -68,7 +72,11 @@ def handle_cancel_selection_node(state: BookingState, config: RunnableConfig) ->
     else:
         reply = f"1 〜 {len(pending_ids)} の番号を入力してください。"
 
-    return {**state, "reply": reply, "pending_cancel_ids": []}
+    return {
+        "reply": reply,
+        "pending_cancel_ids": [],
+        "messages": [AIMessage(content=reply)],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -76,14 +84,19 @@ def handle_cancel_selection_node(state: BookingState, config: RunnableConfig) ->
 # ---------------------------------------------------------------------------
 
 
-def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> BookingState:
+def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> dict:
     repo = _repo(config)
     conversation = _conversation(config)
     reservations = repo.get_confirmed_reservations_for_customer(state["customer_id"])
 
     if not reservations:
         conversation.cancel_flow = None
-        return {**state, "reply": "現在キャンセルできる予約はありません。", "pending_cancel_ids": []}
+        reply = "現在キャンセルできる予約はありません。"
+        return {
+            "reply": reply,
+            "pending_cancel_ids": [],
+            "messages": [AIMessage(content=reply)],
+        }
 
     tz = ZoneInfo(settings.timezone)
     lines = ["キャンセルする予約の番号を入力してください：\n"]
@@ -93,8 +106,13 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> Bo
 
     pending_ids = [r.id for r in reservations]
     conversation.cancel_flow = {"pending_ids": pending_ids}
+    reply = "\n".join(lines)
 
-    return {**state, "reply": "\n".join(lines), "pending_cancel_ids": pending_ids}
+    return {
+        "reply": reply,
+        "pending_cancel_ids": pending_ids,
+        "messages": [AIMessage(content=reply)],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +120,7 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> Bo
 # ---------------------------------------------------------------------------
 
 
-def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> BookingState:
+def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> dict:
     repo = _repo(config)
     conversation = _conversation(config)
     conversation.cancel_flow = None
@@ -121,7 +139,8 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> B
     )
 
     if booking_request.status != BookingRequestStatus.READY:
-        return {**state, "reply": state["gemini_result"].get("reply") or "..."}
+        reply = state["gemini_result"].get("reply") or "..."
+        return {"reply": reply, "messages": [AIMessage(content=reply)]}
 
     reserved_for = repo.build_reserved_for(booking_request)
 
@@ -132,13 +151,13 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> B
         booking_request.requested_date = None
         booking_request.requested_time = None
         booking_request.status = BookingRequestStatus.COLLECTING
-        return {**state, "reply": reply}
+        return {"reply": reply, "messages": [AIMessage(content=reply)]}
 
     reservation = repo.confirm_reservation_from_booking_request(booking_request)
     tz = ZoneInfo(settings.timezone)
     local_dt = reservation.reserved_for.astimezone(tz).strftime("%Y-%m-%d %H:%M")
     reply = f"1時間枠で予約を承りました。担当者よりご連絡します。\n[{reservation.reservation_code} / {local_dt} {settings.timezone}]"
-    return {**state, "reply": reply}
+    return {"reply": reply, "messages": [AIMessage(content=reply)]}
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +165,7 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> B
 # ---------------------------------------------------------------------------
 
 
-def handle_other_intent_node(state: BookingState, config: RunnableConfig) -> BookingState:
+def handle_other_intent_node(state: BookingState, config: RunnableConfig) -> dict:
     _conversation(config).cancel_flow = None
-    return {**state, "reply": state["gemini_result"].get("reply") or "..."}
+    reply = state["gemini_result"].get("reply") or "..."
+    return {"reply": reply, "messages": [AIMessage(content=reply)]}
