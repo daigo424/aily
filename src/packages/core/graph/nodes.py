@@ -38,8 +38,8 @@ def llm_extraction_node(state: BookingState, config: RunnableConfig) -> dict:
         return {"gemini_result": {}, "intent": ConversationIntent.UNKNOWN}
 
     # state["messages"] には今回の HumanMessage がすでに含まれているため、
-    # それより前のメッセージを履歴として渡す
-    prior_messages = state.get("messages", [])[:-1]
+    # それより前のメッセージを履歴として渡す（指定件数以下で）
+    prior_messages = state.get("messages", [])[:-1][-5:]
     gemini_result = extract_booking.execute(text_body, history=prior_messages)
     intent = gemini_result.get("intent", ConversationIntent.UNKNOWN)
 

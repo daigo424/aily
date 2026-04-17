@@ -1,4 +1,4 @@
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -33,7 +33,7 @@ def _route_intent(state: BookingState) -> str:
     return "handle_other_intent"
 
 
-def build_graph() -> CompiledStateGraph:
+def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
     g: StateGraph = StateGraph(BookingState)
 
     g.add_node("llm_extraction", llm_extraction_node)
@@ -64,8 +64,4 @@ def build_graph() -> CompiledStateGraph:
     g.add_edge("handle_booking_intent", END)
     g.add_edge("handle_other_intent", END)
 
-    checkpointer = MemorySaver()
     return g.compile(checkpointer=checkpointer)
-
-
-booking_graph: CompiledStateGraph = build_graph()

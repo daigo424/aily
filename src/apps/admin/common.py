@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, text
 
 from packages.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+engine = create_engine(settings.app_database_url, pool_pre_ping=True)
 
 
 def fetch_df(query: str, params: dict | None = None) -> pd.DataFrame:
