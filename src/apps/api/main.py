@@ -1,22 +1,40 @@
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.postgres import PostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from sqlalchemy.orm import Session
 
 from packages.core.config import settings
 from packages.core.db.base import Base
 from packages.core.db.repositories import Repository
 from packages.core.db.session import SessionLocal, engine
-from packages.core.graph import booking_graph
+from packages.core.graph import build_graph
 from packages.core.graph.state import BookingState
 from packages.core.infrastructure import chatapp, socket
 from packages.core.logging import logger
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WhatsApp Booking API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    pool = ConnectionPool(conninfo=settings.cp_conversation_database_url, max_size=10, open=True, kwargs={"autocommit": True, "row_factory": dict_row})
+    checkpointer = PostgresSaver(pool)  # type: ignore[arg-type]
+    checkpointer.setup()
+    app.state.booking_graph = build_graph(checkpointer)
+    logger.debug("✅ LangGraph PostgresSaver checkpointer initialized")
+    yield
+    pool.close()
+    logger.debug("✅ LangGraph checkpointer connection pool closed")
+
+
+app = FastAPI(title="WhatsApp Booking API", lifespan=lifespan)
 
 
 def normalize_message(message: dict) -> dict:
@@ -66,6 +84,7 @@ async def receive_webhook(request: Request) -> dict:
     if payload.get("object") != "whatsapp_business_account":
         return {"status": "ignored"}
 
+    booking_graph = request.app.state.booking_graph
     db: Session = SessionLocal()
     repo = Repository(db)
 
