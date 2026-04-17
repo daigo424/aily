@@ -36,24 +36,6 @@ services:
       - "8501:8501"
     command: streamlit run src/apps/admin/main.py --server.address=0.0.0.0 --server.port=8501
 
-  demoseed:
-    build:
-      context: ..
-      dockerfile: docker/local.Dockerfile
-    container_name: demoseed
-    working_dir: /app
-    volumes:
-      - ..:/app
-      - ../files:/files
-    environment:
-      PYTHONPATH: /app/src
-      TZ: Asia/Tokyo
-    depends_on:
-      db:
-        condition: service_healthy
-    profiles:
-      - tools
-
   db:
     image: pgvector/pgvector:pg17
     container_name: pgvector_db
