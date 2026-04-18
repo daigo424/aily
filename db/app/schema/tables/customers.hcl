@@ -11,7 +11,7 @@ table "customers" {
 
   column "phone" {
     null = false
-    type = varchar(32)
+    type = varchar(64)
   }
 
   column "name" {

@@ -36,6 +36,24 @@ services:
       - "8501:8501"
     command: streamlit run src/apps/admin/main.py --server.address=0.0.0.0 --server.port=8501
 
+  chat:
+    build:
+      context: ..
+      dockerfile: docker/local.Dockerfile
+    container_name: chat
+    working_dir: /app
+    volumes:
+      - ..:/app
+    depends_on:
+      - app
+    environment:
+      PYTHONPATH: /app/src
+      TZ: Asia/Tokyo
+      API_BASE_URL: http://api:8000
+    ports:
+      - "8502:8502"
+    command: streamlit run src/apps/chat/main.py --server.address=0.0.0.0 --server.port=8502
+
   db:
     image: pgvector/pgvector:pg17
     container_name: pgvector_db
