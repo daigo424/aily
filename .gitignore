@@ -1,10 +1,6 @@
 .venv/
 venv/
 
-.idea/
-.vscode/
-.claude/
-
 __pycache__/
 *.pyc
 *.pyo
@@ -19,14 +15,11 @@ dist/
 
 *.log
 
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
+.*/
+!.github/
 
 .coverage
 htmlcov/
-
-.ipynb_checkpoints/
 
 *.swp
 
