@@ -20,6 +20,8 @@ class BookingExtraction(BaseModel):
     notes: str | None = Field(default=None, description="相談内容・要望・備考")
     follow_up_question: str | None = Field(default=None, description="不足情報を聞き返す質問文")
     reply: str = Field(default="", description="ユーザーへの返答文（ユーザーと同じ言語で）")
+    availability_period: str | None = Field(default=None, description="空き確認の対象月 (YYYY-MM形式、例：2025-05)")
+    preferred_weekday: int | None = Field(default=None, description="希望曜日（0=月, 1=火, 2=水, 3=木, 4=金, 5=土, 6=日）")
 
 
 class NormalizedInbound(BaseModel):

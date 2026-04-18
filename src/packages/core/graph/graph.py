@@ -5,6 +5,7 @@ from langgraph.graph.state import CompiledStateGraph
 from packages.core.constants import ConversationIntent
 
 from .nodes import (
+    handle_availability_node,
     handle_booking_intent_node,
     handle_cancel_intent_node,
     handle_cancel_selection_node,
@@ -24,11 +25,9 @@ def _route_intent(state: BookingState) -> str:
     intent = state["intent"]
     if intent == ConversationIntent.CANCEL_RESERVATION:
         return "handle_cancel_intent"
-    if intent in {
-        ConversationIntent.BOOK_RESERVATION,
-        ConversationIntent.UPDATE_BOOKING_REQUEST,
-        ConversationIntent.ASK_AVAILABILITY,
-    }:
+    if intent == ConversationIntent.ASK_AVAILABILITY:
+        return "handle_availability"
+    if intent in {ConversationIntent.BOOK_RESERVATION, ConversationIntent.UPDATE_BOOKING_REQUEST}:
         return "handle_booking_intent"
     return "handle_other_intent"
 
@@ -39,6 +38,7 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
     g.add_node("llm_extraction", llm_extraction_node)
     g.add_node("handle_cancel_selection", handle_cancel_selection_node)
     g.add_node("handle_cancel_intent", handle_cancel_intent_node)
+    g.add_node("handle_availability", handle_availability_node)
     g.add_node("handle_booking_intent", handle_booking_intent_node)
     g.add_node("handle_other_intent", handle_other_intent_node)
 
@@ -55,12 +55,14 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
         _route_intent,
         {
             "handle_cancel_intent": "handle_cancel_intent",
+            "handle_availability": "handle_availability",
             "handle_booking_intent": "handle_booking_intent",
             "handle_other_intent": "handle_other_intent",
         },
     )
     g.add_edge("handle_cancel_selection", END)
     g.add_edge("handle_cancel_intent", END)
+    g.add_edge("handle_availability", END)
     g.add_edge("handle_booking_intent", END)
     g.add_edge("handle_other_intent", END)
 

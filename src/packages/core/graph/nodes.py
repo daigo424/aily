@@ -115,6 +115,43 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> di
 
 
 # ---------------------------------------------------------------------------
+# Node: availability inquiry — return available dates in requested period
+# ---------------------------------------------------------------------------
+
+
+def handle_availability_node(state: BookingState, config: RunnableConfig) -> dict:
+    repo = _repo(config)
+    raw = state["raw_llm_result"]
+    period = raw.get("availability_period")
+    preferred_weekday: int | None = raw.get("preferred_weekday")
+
+    if not period:
+        reply = raw.get("reply") or "ご希望の時期を教えていただけますでしょうか？"
+        return {"reply": reply, "messages": [AIMessage(content=reply)]}
+
+    try:
+        year, month = map(int, period.split("-"))
+    except (ValueError, AttributeError):
+        reply = raw.get("reply") or "ご希望の時期を教えていただけますでしょうか？"
+        return {"reply": reply, "messages": [AIMessage(content=reply)]}
+
+    available_dates = repo.get_available_dates_in_month(year, month, weekday=preferred_weekday)
+
+    if not available_dates:
+        reply = f"{year}年{month}月は満席です。別の月をご指定ください。"
+        return {"reply": reply, "messages": [AIMessage(content=reply)]}
+
+    weekday_ja = ["月", "火", "水", "木", "金", "土", "日"]
+    lines = [f"{year}年{month}月の予約可能な日程です：\n"]
+    for d in available_dates:
+        dow = weekday_ja[d.weekday()]
+        lines.append(f"・{d.month}/{d.day}（{dow}）")
+    lines.append("\nご希望の日付と時間帯を教えてください。")
+    reply = "\n".join(lines)
+    return {"reply": reply, "messages": [AIMessage(content=reply)]}
+
+
+# ---------------------------------------------------------------------------
 # Node: booking intent — create/update booking request and confirm if ready
 # ---------------------------------------------------------------------------
 
