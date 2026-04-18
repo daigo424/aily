@@ -20,10 +20,7 @@ build-app:
 	$(COMPOSE) build app
 
 up:
-	$(COMPOSE) --verbose up
-
-up-ex-app:
-	$(COMPOSE) up --scale app=0
+	$(COMPOSE) up
 
 down:
 	$(COMPOSE) down
