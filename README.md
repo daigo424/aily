@@ -1,14 +1,15 @@
-# aily — WhatsApp Booking Bot
+# aily — IT Consulting Booking Bot
 
-A WhatsApp-based IT consulting reservation bot powered by Gemini and FastAPI.  
-Customers book, reschedule, or cancel appointments through WhatsApp messages.  
+An AI-powered IT consulting reservation bot backed by Gemini and LangGraph.  
+Customers book, check availability, or cancel appointments through WhatsApp or a web chat interface.  
 Staff manage reservations through a Streamlit admin dashboard.
 
 ## Features
 
-**Customer-facing (WhatsApp)**
-- Receive and parse text, image, and audio messages
-- Extract booking intent and date/time using Gemini structured output
+**Customer-facing**
+- WhatsApp and web chat (Streamlit) both supported
+- Extracts booking intent, date, time, and availability period using Gemini structured output
+- Availability inquiry — lists open dates in a requested month/weekday from live DB state
 - Follow-up questions when date or time is missing
 - Conflict detection — rejects double-booking within 1-hour slots
 - Cancellation flow — lists active reservations by number, lets customers confirm selection
@@ -16,24 +17,41 @@ Staff manage reservations through a Streamlit admin dashboard.
 
 **Admin dashboard (Streamlit)**
 - Reservation list with filters: pending / completed / voided / cancelled
-- Per-reservation detail: timestamps for completion, voiding, and customer cancellation
-- Status transitions: mark as completed or void (customer-cancelled reservations are locked)
+- Per-reservation detail: timestamps for completion, voiding, and cancellation
+- Status transitions: mark as completed or void
 - Customer conversation history viewer
+
+## Conversation Graph
+
+![Booking graph](doc/graph.png)
+
+The conversation is managed as a LangGraph state machine persisted via PostgresSaver.
+
+| Node | Trigger | Action |
+|---|---|---|
+| `llm_extraction` | Every message | Gemini extracts intent, date, time, period |
+| `handle_availability` | `ask_availability` intent | Queries DB, returns open dates for requested month/weekday |
+| `handle_booking_intent` | `book_reservation` / `update_booking_request` | Creates or updates booking request, confirms if ready |
+| `handle_cancel_intent` | `cancel_reservation` intent | Lists customer's pending reservations |
+| `handle_cancel_selection` | Numeric input during cancel flow | Cancels the selected reservation |
+| `handle_other_intent` | `smalltalk` / `unknown` | Returns LLM reply |
 
 ## Reservation Statuses
 
-| Status      | Set by              | Meaning                        |
-|-------------|---------------------|--------------------------------|
-| `pending`   | System              | Received, awaiting staff review |
-| `completed` | Admin               | Consultation completed         |
-| `voided`    | Admin               | Invalidated by staff           |
-| `cancelled` | Customer (WhatsApp) | Cancelled by the customer      |
+| Status | Set by | Meaning |
+|---|---|---|
+| `pending` | System | Confirmed, awaiting staff review |
+| `completed` | Admin | Consultation completed |
+| `voided` | Admin | Invalidated by staff |
+| `cancelled` | Customer | Cancelled by the customer |
 
 ## Tech Stack
 
 - **API**: FastAPI + Uvicorn
-- **Admin**: Streamlit
+- **Chat UI**: Streamlit (SSE streaming)
+- **Admin UI**: Streamlit
 - **LLM**: Google Gemini (`gemini-2.5-flash`)
+- **Conversation state**: LangGraph + PostgresSaver
 - **DB**: PostgreSQL 17 + pgvector
 - **Schema management**: Atlas
 - **Package management**: uv
@@ -45,21 +63,33 @@ Staff manage reservations through a Streamlit admin dashboard.
 ```
 src/
 ├── apps/
-│   ├── api/          # WhatsApp webhook (FastAPI)
-│   ├── admin/        # Admin dashboard (Streamlit)
+│   ├── api/                  # FastAPI
+│   │   ├── main.py           # App setup, lifespan, router registration
+│   │   ├── common.py         # Shared helpers (normalize_message)
+│   │   └── routers/
+│   │       ├── webhook.py    # GET/POST /webhook (WhatsApp)
+│   │       └── chat.py       # POST /chat (SSE streaming)
+│   ├── admin/                # Admin dashboard (Streamlit, port 8501)
+│   └── chat/                 # Web chat UI (Streamlit, port 8502)
 └── packages/core/
-    ├── config/       # Settings (pydantic-settings)
-    ├── constants.py  # ReservationStatus, BookingRequestStatus, ConversationIntent
+    ├── config/               # Settings (pydantic-settings)
+    ├── constants.py          # ReservationStatus, BookingRequestStatus, ConversationIntent
     ├── db/
-    │   ├── models/   # SQLAlchemy ORM models
-    │   └── repositories/
+    │   ├── models/           # SQLAlchemy ORM models
+    │   └── repositories/     # DB access layer
+    ├── graph/                # LangGraph definition
+    │   ├── graph.py          # Graph builder and routing
+    │   ├── nodes.py          # Node functions
+    │   └── state.py          # BookingState TypedDict
     ├── infrastructure/
-    │   ├── chatapp/  # WhatsApp Cloud API client
-    │   └── llm/      # Gemini client
-    ├── schemas/      # Pydantic schemas
-    └── usecases/     # Booking extraction logic
+    │   ├── chatapp/          # WhatsApp Cloud API client
+    │   └── llm/              # Gemini client
+    ├── schemas/              # Pydantic schemas (BookingExtraction)
+    └── usecases/             # Booking extraction (LLM prompt + parsing)
 db/
-└── app/schema/       # Atlas HCL schema definitions
+└── app/schema/               # Atlas HCL schema definitions
+scripts/
+└── draw_graph.py             # Generate doc/graph.png
 ```
 
 ## Prerequisites
@@ -69,7 +99,7 @@ db/
 - [Atlas CLI](https://atlasgo.io)
 - Meta WhatsApp Cloud API credentials
 - Gemini API key
-- Public URL (ngrok or Cloudflare Tunnel)
+- Public URL (ngrok or Cloudflare Tunnel) — WhatsApp only
 
 ## Setup
 
@@ -81,17 +111,17 @@ cp .env.example .env
 
 Edit `.env` with your credentials:
 
-| Variable                    | Description                                        |
-|-----------------------------|----------------------------------------------------|
-| `APP_BASE_URL`              | Your public URL (e.g. ngrok URL)                   |
-| `LOCAL_PUBLISH_DOMAIN`      | Domain only, without `https://`                    |
-| `VERIFY_TOKEN`              | Arbitrary token for WhatsApp webhook verification  |
-| `WHATSAPP_TOKEN`            | WhatsApp Cloud API token                           |
-| `WHATSAPP_PHONE_NUMBER_ID`  | WhatsApp phone number ID                           |
-| `WHATSAPP_GRAPH_API_VERSION`| e.g. `v24.0`                                       |
-| `GEMINI_API_KEY`            | Google Gemini API key                              |
-| `GEMINI_MODEL`              | e.g. `gemini-2.5-flash`                            |
-| `TIMEZONE`                  | e.g. `Asia/Tokyo`                                  |
+| Variable | Description |
+|---|---|
+| `APP_BASE_URL` | Your public URL (e.g. ngrok URL) |
+| `LOCAL_PUBLISH_DOMAIN` | Domain only, without `https://` |
+| `VERIFY_TOKEN` | Arbitrary token for WhatsApp webhook verification |
+| `WHATSAPP_TOKEN` | WhatsApp Cloud API token |
+| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp phone number ID |
+| `WHATSAPP_GRAPH_API_VERSION` | e.g. `v24.0` |
+| `GEMINI_API_KEY` | Google Gemini API key |
+| `GEMINI_MODEL` | e.g. `gemini-2.5-flash` |
+| `TIMEZONE` | e.g. `Asia/Tokyo` |
 
 ### 2. Start services
 
@@ -99,10 +129,12 @@ Edit `.env` with your credentials:
 make up
 ```
 
-This starts:
-- `api` — FastAPI app on port 8000
-- `admin` — Streamlit dashboard on port 8501
-- `db` — PostgreSQL + pgvector on port 5432
+| Service | Port | Description |
+|---|---|---|
+| `api` | 8000 | FastAPI (WhatsApp webhook + chat API) |
+| `admin` | 8501 | Admin dashboard |
+| `chat` | 8502 | Web chat UI |
+| `db` | 5432 | PostgreSQL + pgvector |
 
 ### 3. Apply database schema
 
@@ -110,7 +142,7 @@ This starts:
 make atlas-apply
 ```
 
-### 4. Expose the local server
+### 4. Expose the local server (WhatsApp only)
 
 ```bash
 make publish
@@ -129,17 +161,15 @@ In the Meta Developer Console:
 ## Development
 
 ```bash
-# Run all checks
-make all-check
+make all-check     # format + lint + typecheck + test
 
-# Individual checks
 make format        # Ruff format
 make lint          # Ruff lint
 make typecheck     # mypy
 make test          # pytest
 
-# Update requirements files from pyproject.toml
-make update-req
+make draw-graph    # Regenerate doc/graph.png
+make update-req    # Sync requirements files from pyproject.toml
 ```
 
 > **Note:** `requirements.txt` and `requirements-dev.txt` are generated from `pyproject.toml` via `uv export`.  
@@ -147,13 +177,14 @@ make update-req
 
 ## Database Tables
 
-| Table             | Description                                                     |
-|-------------------|-----------------------------------------------------------------|
-| `customers`       | Phone number and name                                           |
-| `conversations`   | Per-customer chat session with intent and cancel flow state     |
-| `messages`        | All inbound and outbound messages                               |
-| `booking_requests` | Booking info being collected (collecting → ready → confirmed)  |
-| `reservations`    | Confirmed reservations with status lifecycle                    |
+| Table | Description |
+|---|---|
+| `customers` | Phone number (or chat session ID) and name |
+| `conversations` | Per-customer chat session; `active_flow` tracks current flow state |
+| `conversation_flow_cancel_items` | Reservations presented during an active cancel flow |
+| `messages` | All inbound and outbound messages with raw LLM output |
+| `booking_requests` | Booking info being collected (`collecting` → `ready` → `confirmed`) |
+| `reservations` | Confirmed reservations with full status lifecycle |
 
 ## CI
 
