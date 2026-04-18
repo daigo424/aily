@@ -51,7 +51,7 @@ table "messages" {
     default = sql("'{}'::jsonb")
   }
 
-  column "gemini_result" {
+  column "raw_llm_result" {
     null    = false
     type    = jsonb
     default = sql("'{}'::jsonb")

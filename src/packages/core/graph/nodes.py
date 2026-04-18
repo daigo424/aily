@@ -35,19 +35,19 @@ def _source_message(config: RunnableConfig) -> Message:
 def llm_extraction_node(state: BookingState, config: RunnableConfig) -> dict:
     text_body = state["text_body"]
     if not text_body:
-        return {"gemini_result": {}, "intent": ConversationIntent.UNKNOWN}
+        return {"raw_llm_result": {}, "intent": ConversationIntent.UNKNOWN}
 
     # state["messages"] には今回の HumanMessage がすでに含まれているため、
     # それより前のメッセージを履歴として渡す（指定件数以下で）
     prior_messages = state.get("messages", [])[:-1][-5:]
-    gemini_result = extract_booking.execute(text_body, history=prior_messages)
-    intent = gemini_result.get("intent", ConversationIntent.UNKNOWN)
+    raw_llm_result = extract_booking.execute(text_body, history=prior_messages)
+    intent = raw_llm_result.get("intent", ConversationIntent.UNKNOWN)
 
     conversation = _conversation(config)
     conversation.current_intent = intent
-    conversation.state = gemini_result
+    conversation.state = raw_llm_result
 
-    return {"gemini_result": gemini_result, "intent": intent}
+    return {"raw_llm_result": raw_llm_result, "intent": intent}
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +135,11 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> d
         conversation=conversation,
         customer=customer,
         source_message=source_message,
-        parsed=state["gemini_result"],
+        parsed=state["raw_llm_result"],
     )
 
     if booking_request.status != BookingRequestStatus.READY:
-        reply = state["gemini_result"].get("reply") or "..."
+        reply = state["raw_llm_result"].get("reply") or "..."
         return {"reply": reply, "messages": [AIMessage(content=reply)]}
 
     reserved_for = repo.build_reserved_for(booking_request)
@@ -167,5 +167,5 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> d
 
 def handle_other_intent_node(state: BookingState, config: RunnableConfig) -> dict:
     _conversation(config).cancel_flow = None
-    reply = state["gemini_result"].get("reply") or "..."
+    reply = state["raw_llm_result"].get("reply") or "..."
     return {"reply": reply, "messages": [AIMessage(content=reply)]}

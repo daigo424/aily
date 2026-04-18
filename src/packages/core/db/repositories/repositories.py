@@ -57,7 +57,7 @@ class Repository:
         text_content: str | None,
         raw_payload: dict,
         normalized_payload: dict,
-        gemini_result: dict,
+        raw_llm_result: dict,
     ) -> Message:
         msg = Message(
             conversation_id=conversation.id,
@@ -68,7 +68,7 @@ class Repository:
             text_content=text_content,
             raw_payload=raw_payload,
             normalized_payload=normalized_payload,
-            gemini_result=gemini_result,
+            raw_llm_result=raw_llm_result,
         )
         self.db.add(msg)
         self.db.flush()

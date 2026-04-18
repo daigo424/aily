@@ -22,7 +22,7 @@ class BookingState(TypedDict):
     pending_cancel_ids: list[int]
 
     # LLM extraction result
-    gemini_result: dict[str, Any]
+    raw_llm_result: dict[str, Any]
     intent: str
 
     # Reply to send back to the customer

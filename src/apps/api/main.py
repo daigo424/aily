@@ -11,15 +11,12 @@ from psycopg_pool import ConnectionPool
 from sqlalchemy.orm import Session
 
 from packages.core.config import settings
-from packages.core.db.base import Base
 from packages.core.db.repositories import Repository
-from packages.core.db.session import SessionLocal, engine
+from packages.core.db.session import SessionLocal
 from packages.core.graph import build_graph
 from packages.core.graph.state import BookingState
 from packages.core.infrastructure import chatapp, socket
 from packages.core.logging import logger
-
-Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
@@ -123,7 +120,7 @@ async def receive_webhook(request: Request) -> dict:
                         text_content=text_body,
                         raw_payload=message,
                         normalized_payload=normalized,
-                        gemini_result={},
+                        raw_llm_result={},
                     )
 
                     initial_state = BookingState(
@@ -136,7 +133,7 @@ async def receive_webhook(request: Request) -> dict:
                         raw_message=message,
                         normalized=normalized,
                         pending_cancel_ids=(conversation.cancel_flow or {}).get("pending_ids", []),
-                        gemini_result={},
+                        raw_llm_result={},
                         intent="",
                         reply="...",
                     )
@@ -151,7 +148,7 @@ async def receive_webhook(request: Request) -> dict:
                             }
                         },
                     )
-                    saved_message.gemini_result = result["gemini_result"]
+                    saved_message.raw_llm_result = result["raw_llm_result"]
                     reply = result["reply"]
 
                     chatapp.client.send_text_message(sender, reply)
@@ -164,7 +161,7 @@ async def receive_webhook(request: Request) -> dict:
                         text_content=reply,
                         raw_payload={"generated": True},
                         normalized_payload={"text": reply},
-                        gemini_result={},
+                        raw_llm_result={},
                     )
 
         db.commit()

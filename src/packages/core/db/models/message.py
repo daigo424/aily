@@ -26,7 +26,7 @@ class Message(Base):
     text_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_payload: Mapped[dict] = mapped_column(JSON, default=dict)
     normalized_payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    gemini_result: Mapped[dict] = mapped_column(JSON, default=dict)
+    raw_llm_result: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
