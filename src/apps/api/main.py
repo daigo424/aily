@@ -132,7 +132,7 @@ async def receive_webhook(request: Request) -> dict:
                         wamid=wamid,
                         raw_message=message,
                         normalized=normalized,
-                        pending_cancel_ids=(conversation.cancel_flow or {}).get("pending_ids", []),
+                        pending_cancel_ids=repo.get_cancel_flow_reservation_ids(conversation.id),
                         raw_llm_result={},
                         intent="",
                         reply="...",

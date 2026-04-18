@@ -18,7 +18,7 @@ class BookingState(TypedDict):
     raw_message: dict[str, Any]
     normalized: dict[str, Any]
 
-    # Persisted cancel flow state (hydrated from conversation.cancel_flow at turn start)
+    # Reservation IDs presented to the user during cancel flow (from conversation_flow_cancel_items)
     pending_cancel_ids: list[int]
 
     # LLM extraction result

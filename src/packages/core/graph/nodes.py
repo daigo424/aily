@@ -45,7 +45,6 @@ def llm_extraction_node(state: BookingState, config: RunnableConfig) -> dict:
 
     conversation = _conversation(config)
     conversation.current_intent = intent
-    conversation.state = raw_llm_result
 
     return {"raw_llm_result": raw_llm_result, "intent": intent}
 
@@ -68,7 +67,7 @@ def handle_cancel_selection_node(state: BookingState, config: RunnableConfig) ->
         tz = ZoneInfo(settings.timezone)
         local_dt = cancelled.reserved_for.astimezone(tz).strftime("%Y-%m-%d %H:%M")
         reply = f"予約 {cancelled.reservation_code}（{local_dt} {settings.timezone}）をキャンセルしました。またのご利用をお待ちしております。"
-        conversation.cancel_flow = None
+        repo.clear_cancel_flow(conversation)
     else:
         reply = f"1 〜 {len(pending_ids)} の番号を入力してください。"
 
@@ -90,7 +89,7 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> di
     reservations = repo.get_confirmed_reservations_for_customer(state["customer_id"])
 
     if not reservations:
-        conversation.cancel_flow = None
+        repo.clear_cancel_flow(conversation)
         reply = "現在キャンセルできる予約はありません。"
         return {
             "reply": reply,
@@ -105,7 +104,7 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> di
         lines.append(f"{i}. {r.reservation_code} / {local_dt} {settings.timezone}")
 
     pending_ids = [r.id for r in reservations]
-    conversation.cancel_flow = {"pending_ids": pending_ids}
+    repo.set_cancel_flow(conversation, pending_ids)
     reply = "\n".join(lines)
 
     return {
@@ -123,7 +122,7 @@ def handle_cancel_intent_node(state: BookingState, config: RunnableConfig) -> di
 def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> dict:
     repo = _repo(config)
     conversation = _conversation(config)
-    conversation.cancel_flow = None
+    repo.clear_cancel_flow(conversation)
 
     db = repo.db
     from packages.core.db.models import Customer as CustomerModel
@@ -166,6 +165,6 @@ def handle_booking_intent_node(state: BookingState, config: RunnableConfig) -> d
 
 
 def handle_other_intent_node(state: BookingState, config: RunnableConfig) -> dict:
-    _conversation(config).cancel_flow = None
+    _repo(config).clear_cancel_flow(_conversation(config))
     reply = state["raw_llm_result"].get("reply") or "..."
     return {"reply": reply, "messages": [AIMessage(content=reply)]}

@@ -31,15 +31,9 @@ table "conversations" {
     type = varchar(64)
   }
 
-  column "state" {
-    null    = false
-    type    = jsonb
-    default = sql("'{}'::jsonb")
-  }
-
-  column "cancel_flow" {
+  column "active_flow" {
     null = true
-    type = jsonb
+    type = varchar(64)
   }
 
   column "last_message_at" {

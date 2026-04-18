@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from packages.core.config import settings
 from packages.core.constants import BookingRequestStatus, ReservationStatus
-from packages.core.db.models import BookingRequest, Conversation, Customer, Message, Reservation
+from packages.core.db.models import BookingRequest, Conversation, ConversationFlowCancelItem, Customer, Message, Reservation
 
 _TZ = ZoneInfo(settings.timezone)
 
@@ -73,6 +73,20 @@ class Repository:
         self.db.add(msg)
         self.db.flush()
         return msg
+
+    def get_cancel_flow_reservation_ids(self, conversation_id: int) -> list[int]:
+        items = self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation_id).all()
+        return [item.reservation_id for item in items]
+
+    def set_cancel_flow(self, conversation: Conversation, reservation_ids: list[int]) -> None:
+        self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation.id).delete()
+        for rid in reservation_ids:
+            self.db.add(ConversationFlowCancelItem(conversation_id=conversation.id, reservation_id=rid))
+        conversation.active_flow = "cancel_selection"
+
+    def clear_cancel_flow(self, conversation: Conversation) -> None:
+        self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation.id).delete()
+        conversation.active_flow = None
 
     def create_or_update_booking_request(
         self,
