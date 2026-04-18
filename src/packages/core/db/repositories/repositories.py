@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar
 import random
 import string
 from datetime import date, datetime, time, timedelta, timezone
@@ -128,6 +129,36 @@ class Repository:
         else:
             booking_request.status = BookingRequestStatus.COLLECTING
         return booking_request
+
+    def get_available_dates_in_month(self, year: int, month: int, weekday: int | None = None) -> list[date]:
+        _, days_in_month = calendar.monthrange(year, month)
+        start_dt = datetime(year, month, 1, tzinfo=_TZ)
+        end_dt = datetime(year, month, days_in_month, 23, 59, 59, tzinfo=_TZ)
+
+        reservations = (
+            self.db.query(Reservation)
+            .filter(
+                Reservation.status == ReservationStatus.PENDING,
+                Reservation.reserved_for >= start_dt,
+                Reservation.reserved_for <= end_dt,
+            )
+            .all()
+        )
+
+        booked_counts: dict[date, int] = {}
+        for r in reservations:
+            d = r.reserved_for.astimezone(_TZ).date()
+            booked_counts[d] = booked_counts.get(d, 0) + 1
+
+        max_slots_per_day = 9  # 9:00-17:00 の 1 時間枠
+        available = []
+        for day in range(1, days_in_month + 1):
+            d = date(year, month, day)
+            if weekday is not None and d.weekday() != weekday:
+                continue
+            if booked_counts.get(d, 0) < max_slots_per_day:
+                available.append(d)
+        return available
 
     def is_time_slot_available(self, reserved_for: datetime) -> bool:
         """reserved_for から 1 時間枠が他の confirmed 予約と重複していなければ True"""
