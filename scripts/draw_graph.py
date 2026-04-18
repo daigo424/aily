@@ -5,6 +5,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from langgraph.checkpoint.memory import MemorySaver
+
 from packages.core.graph.graph import build_graph
 
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "doc", "graph.png")
@@ -12,7 +14,7 @@ OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "doc", "graph.png")
 
 def main() -> None:
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    graph = build_graph()
+    graph = build_graph(MemorySaver())
     png_bytes = graph.get_graph().draw_mermaid_png()
     with open(OUTPUT_PATH, "wb") as f:
         f.write(png_bytes)
