@@ -49,7 +49,7 @@ if prompt := st.chat_input("メッセージを入力"):
     with st.chat_message("assistant"):
         try:
             reply = st.write_stream(stream_reply(prompt, st.session_state.session_id))
-        except Exception as e:
+        except Exception:
             reply = "エラーが発生しました。しばらくしてから再試行してください。"
             st.error(reply)
 

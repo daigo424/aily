@@ -4,14 +4,13 @@ from fastapi import APIRouter, Request, Response
 from langchain_core.messages import HumanMessage
 from sqlalchemy.orm import Session
 
+from apps.api.common import normalize_message
 from packages.core.config import settings
 from packages.core.db.repositories import Repository
 from packages.core.db.session import SessionLocal
 from packages.core.graph.state import BookingState
 from packages.core.infrastructure import chatapp
 from packages.core.logging import logger
-
-from apps.api.common import normalize_message
 
 router = APIRouter()
 
