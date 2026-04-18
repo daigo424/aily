@@ -31,15 +31,9 @@ table "conversations" {
     type = varchar(64)
   }
 
-  column "state" {
-    null    = false
-    type    = jsonb
-    default = sql("'{}'::jsonb")
-  }
-
-  column "cancel_flow" {
+  column "active_flow" {
     null = true
-    type = jsonb
+    type = varchar(64)
   }
 
   column "last_message_at" {
@@ -62,12 +56,6 @@ table "conversations" {
 
   primary_key {
     columns = [column.id]
-  }
-
-  foreign_key "conversations_customer_id_fkey" {
-    columns     = [column.customer_id]
-    ref_columns = [table.customers.column.id]
-    on_delete   = CASCADE
   }
 
   index "ix_conversations_customer_id" {

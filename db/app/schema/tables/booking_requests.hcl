@@ -67,24 +67,6 @@ table "booking_requests" {
     columns = [column.id]
   }
 
-  foreign_key "booking_requests_conversation_id_fkey" {
-    columns     = [column.conversation_id]
-    ref_columns = [table.conversations.column.id]
-    on_delete   = CASCADE
-  }
-
-  foreign_key "booking_requests_customer_id_fkey" {
-    columns     = [column.customer_id]
-    ref_columns = [table.customers.column.id]
-    on_delete   = CASCADE
-  }
-
-  foreign_key "booking_requests_source_message_id_fkey" {
-    columns     = [column.source_message_id]
-    ref_columns = [table.messages.column.id]
-    on_delete   = SET_NULL
-  }
-
   index "ix_booking_requests_customer_id" {
     columns = [column.customer_id]
   }

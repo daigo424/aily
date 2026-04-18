@@ -51,7 +51,7 @@ table "messages" {
     default = sql("'{}'::jsonb")
   }
 
-  column "gemini_result" {
+  column "raw_llm_result" {
     null    = false
     type    = jsonb
     default = sql("'{}'::jsonb")
@@ -65,18 +65,6 @@ table "messages" {
 
   primary_key {
     columns = [column.id]
-  }
-
-  foreign_key "messages_conversation_id_fkey" {
-    columns     = [column.conversation_id]
-    ref_columns = [table.conversations.column.id]
-    on_delete   = CASCADE
-  }
-
-  foreign_key "messages_customer_id_fkey" {
-    columns     = [column.customer_id]
-    ref_columns = [table.customers.column.id]
-    on_delete   = CASCADE
   }
 
   unique "uq_messages_wamid" {

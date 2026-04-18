@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from packages.core.db.base import Base, utcnow
@@ -25,8 +24,7 @@ class Conversation(Base):
     channel: Mapped[str] = mapped_column(String(32), default="whatsapp")
     status: Mapped[str] = mapped_column(String(32), default="active")
     current_intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    state: Mapped[dict] = mapped_column(JSON, default=dict)
-    cancel_flow: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
+    active_flow: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

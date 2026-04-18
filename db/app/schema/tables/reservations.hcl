@@ -76,24 +76,6 @@ table "reservations" {
     columns = [column.id]
   }
 
-  foreign_key "reservations_conversation_id_fkey" {
-    columns     = [column.conversation_id]
-    ref_columns = [table.conversations.column.id]
-    on_delete   = CASCADE
-  }
-
-  foreign_key "reservations_customer_id_fkey" {
-    columns     = [column.customer_id]
-    ref_columns = [table.customers.column.id]
-    on_delete   = CASCADE
-  }
-
-  foreign_key "reservations_booking_request_id_fkey" {
-    columns     = [column.booking_request_id]
-    ref_columns = [table.booking_requests.column.id]
-    on_delete   = SET_NULL
-  }
-
   unique "uq_reservations_reservation_code" {
     columns = [column.reservation_code]
   }
