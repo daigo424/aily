@@ -35,7 +35,7 @@ table "customers" {
     columns = [column.id]
   }
 
-  unique "uq_customers_phone" {
+  unique "customers_phone_key" {
     columns = [column.phone]
   }
 }

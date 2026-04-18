@@ -85,11 +85,11 @@ table "booking_requests" {
     on_delete   = SET_NULL
   }
 
-  index "ix_booking_requests_customer_id" {
+  index "booking_requests_customer_id_key" {
     columns = [column.customer_id]
   }
 
-  index "ix_booking_requests_conversation_id" {
+  index "booking_requests_conversation_id_key" {
     columns = [column.conversation_id]
   }
 }

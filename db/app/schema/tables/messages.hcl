@@ -79,15 +79,15 @@ table "messages" {
     on_delete   = CASCADE
   }
 
-  unique "uq_messages_wamid" {
+  unique "messages_wamid_key" {
     columns = [column.wamid]
   }
 
-  index "ix_messages_conversation_id" {
+  index "messages_conversation_id_key" {
     columns = [column.conversation_id]
   }
 
-  index "ix_messages_customer_id" {
+  index "messages_customer_id_key" {
     columns = [column.customer_id]
   }
 }

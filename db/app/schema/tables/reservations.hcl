@@ -94,19 +94,19 @@ table "reservations" {
     on_delete   = SET_NULL
   }
 
-  unique "uq_reservations_reservation_code" {
+  unique "reservations_reservation_code_key" {
     columns = [column.reservation_code]
   }
 
-  index "ix_reservations_customer_id" {
+  index "reservations_customer_id_key" {
     columns = [column.customer_id]
   }
 
-  index "ix_reservations_conversation_id" {
+  index "reservations_conversation_id_key" {
     columns = [column.conversation_id]
   }
 
-  index "ix_reservations_reserved_for" {
+  index "reservations_reserved_for_key" {
     columns = [column.reserved_for]
   }
 }

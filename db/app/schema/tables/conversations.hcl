@@ -70,7 +70,7 @@ table "conversations" {
     on_delete   = CASCADE
   }
 
-  index "ix_conversations_customer_id" {
+  index "conversations_customer_id_key" {
     columns = [column.customer_id]
   }
 }
