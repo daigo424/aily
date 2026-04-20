@@ -1,9 +1,7 @@
 import streamlit as st
-from sqlalchemy.orm import Session
 
-from apps.admin.common import engine, fetch_df
+from apps.admin.common import api_get, api_patch
 from packages.core.constants import ReservationStatus
-from packages.core.db.repositories import Repository
 
 st.title("予約一覧")
 
@@ -12,34 +10,15 @@ show_completed = col1.checkbox("完了済みを含む", value=False)
 show_voided = col2.checkbox("無効を含む", value=False)
 show_cancelled = col3.checkbox("キャンセル済みを含む", value=False)
 
-excluded = []
-if not show_completed:
-    excluded.append(f"'{ReservationStatus.COMPLETED}'")
-if not show_voided:
-    excluded.append(f"'{ReservationStatus.VOIDED}'")
-if not show_cancelled:
-    excluded.append(f"'{ReservationStatus.CANCELLED}'")
-
-where_clause = f"where r.status not in ({', '.join(excluded)})" if excluded else ""
-
-df = fetch_df(
-    f"""
-    select
-      r.id,
-      r.reservation_code,
-      r.status,
-      r.reserved_for,
-      r.completed_at,
-      r.voided_at,
-      r.cancelled_at,
-      c.name as customer_name,
-      c.phone
-    from reservations r
-    join customers c on c.id = r.customer_id
-    {where_clause}
-    order by r.reserved_for desc
-    """
+data = api_get(
+    "/admin/reservations",
+    {
+        "show_completed": show_completed,
+        "show_voided": show_voided,
+        "show_cancelled": show_cancelled,
+    },
 )
+items = data["items"]
 
 STATUS_LABEL = {
     ReservationStatus.PENDING: "確認中",
@@ -49,19 +28,17 @@ STATUS_LABEL = {
 }
 
 
-def fmt_dt(val) -> str:
-    if val is None or str(val) in ("None", "NaT", ""):
+def fmt_dt(val: str | None) -> str:
+    if not val:
         return "―"
-    return str(val)[:16]
+    return val[:16]
 
 
-def update_status(reservation_id: int, status: ReservationStatus) -> None:
-    with Session(engine) as db:
-        Repository(db).update_reservation_status(reservation_id, status)
-        db.commit()
+def update_status(reservation_id: int, status: str) -> None:
+    api_patch(f"/admin/reservations/{reservation_id}/status", {"status": status})
 
 
-if df.empty:
+if not items:
     st.info("予約データがありません。")
 else:
     col_widths = [1, 2, 1.5, 2, 2, 2, 2, 2, 2, 1, 1, 1]
@@ -71,8 +48,8 @@ else:
         col.markdown(f"**{label}**")
     st.divider()
 
-    for _, row in df.iterrows():
-        rid = int(row["id"])
+    for row in items:
+        rid = row["id"]
         status = row["status"]
         cols = st.columns(col_widths)
         cols[0].write(rid)

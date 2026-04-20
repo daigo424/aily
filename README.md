@@ -113,7 +113,7 @@ Edit `.env` with your credentials:
 
 | Variable | Description |
 |---|---|
-| `APP_BASE_URL` | Your public URL (e.g. ngrok URL) |
+| `API_BASE_URL` | Your public URL (e.g. ngrok URL) |
 | `LOCAL_PUBLISH_DOMAIN` | Domain only, without `https://` |
 | `VERIFY_TOKEN` | Arbitrary token for WhatsApp webhook verification |
 | `WHATSAPP_TOKEN` | WhatsApp Cloud API token |
