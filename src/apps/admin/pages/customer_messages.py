@@ -1,64 +1,47 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-from apps.admin.common import fetch_df
-from packages.core.infrastructure import chatapp
+from apps.admin.common import api_get, api_post
 
 PAGE_SIZE = 50
-PREFETCH_AT = 40  # このインデックスが画面に入ったら次バッチをロード
+PREFETCH_AT = 40
 
 st.title("顧客メッセージ")
 
 default_phone = st.session_state.pop("customer_phone", "") or st.query_params.get("phone", "")
 phone = st.text_input("電話番号", value=default_phone)
 
-# 電話番号が変わったらページをリセット
 if phone and phone != st.query_params.get("phone", ""):
     st.query_params["phone"] = phone
     st.query_params.pop("page", None)
     st.rerun()
 
 page = int(st.query_params.get("page", "0"))
-limit = (page + 1) * PAGE_SIZE
 
 if phone:
-    customer = fetch_df(
-        "select id, phone, name from customers where phone = :phone",
-        {"phone": phone},
-    )
-    if customer.empty:
+    customer: dict | None
+    try:
+        customer = api_get(f"/admin/customers/{phone}")
+    except Exception:
+        customer = None
+
+    if not customer:
         st.warning("該当する顧客が見つかりません。")
     else:
-        row = customer.iloc[0]
-        st.markdown(f"**{row['name'] or '名前未登録'}** / {row['phone']}")
+        st.markdown(f"**{customer['name'] or '名前未登録'}** / {customer['phone']}")
 
-        messages = fetch_df(
-            """
-            select
-              m.id,
-              m.direction,
-              m.message_type,
-              m.text_content,
-              m.created_at
-            from messages m
-            join customers c on c.id = m.customer_id
-            where c.phone = :phone
-            order by m.created_at desc
-            limit :limit
-            """,
-            {"phone": phone, "limit": limit},
-        )
+        data = api_get(f"/admin/customers/{phone}/messages", {"page": page, "per_page": PAGE_SIZE})
+        messages = data["items"]
+        has_more = data["has_more"]
 
         st.subheader("会話履歴")
-        if messages.empty:
+        if not messages:
             st.info("メッセージがありません。")
         else:
             total = len(messages)
-            has_more = total == limit
-            # 最後に読み込んだバッチの40件目の絶対インデックス（0始まり）
             sentinel_index = page * PAGE_SIZE + PREFETCH_AT - 1
 
-            for i, (_, msg) in enumerate(messages.iterrows()):
+            for i, msg in enumerate(messages):
                 is_outbound = msg["direction"] == "outbound"
                 col_spacer, col_bubble = st.columns([1, 3]) if is_outbound else st.columns([3, 1])
                 target_col = col_bubble if is_outbound else col_spacer
@@ -66,7 +49,7 @@ if phone:
                 target_col.markdown(
                     f"<div style='background:{'#DCF8C6' if is_outbound else '#F0F0F0'};color:#666;"
                     f"padding:8px 12px;border-radius:8px;margin:4px 0;font-size:0.9em'>"
-                    f"<small style='color:#888'>{label} · {str(msg['created_at'])[:16]}</small><br>"
+                    f"<small style='color:#888'>{label} · {(msg['created_at'] or '')[:16]}</small><br>"
                     f"{msg['text_content'] or '[' + msg['message_type'] + ']'}"
                     f"</div>",
                     unsafe_allow_html=True,
@@ -111,7 +94,7 @@ if phone:
                 st.warning("本文を入力してください。")
             else:
                 try:
-                    chatapp.client.send_text_message(phone, body.strip())
+                    api_post(f"/admin/customers/{phone}/messages", {"text": body.strip()})
                     st.success("送信しました。")
                     st.rerun()
                 except Exception as e:

@@ -6,7 +6,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from apps.api.routers import chat, webhook
+from apps.api.routers import admin, chat, webhook
 from packages.core.config import settings
 from packages.core.graph import build_graph
 from packages.core.infrastructure import socket
@@ -29,6 +29,7 @@ app = FastAPI(title="WhatsApp Booking API", lifespan=lifespan)
 
 app.include_router(webhook.router)
 app.include_router(chat.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

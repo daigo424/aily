@@ -1,5 +1,5 @@
 services:
-  app:
+  api:
     build:
       context: ..
       dockerfile: docker/local.Dockerfile
@@ -27,11 +27,11 @@ services:
     volumes:
       - ..:/app
     depends_on:
-      db:
-        condition: service_healthy
+      - api
     environment:
       PYTHONPATH: /app/src
       TZ: Asia/Tokyo
+      API_BASE_URL: http://api:8000
     ports:
       - "8501:8501"
     command: streamlit run src/apps/admin/main.py --server.address=0.0.0.0 --server.port=8501
@@ -45,7 +45,7 @@ services:
     volumes:
       - ..:/app
     depends_on:
-      - app
+      - api
     environment:
       PYTHONPATH: /app/src
       TZ: Asia/Tokyo

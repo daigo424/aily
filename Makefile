@@ -16,8 +16,8 @@ build:
 build-no-cache:
 	$(COMPOSE) build --no-cache
 
-build-app:
-	$(COMPOSE) build app
+build-api:
+	$(COMPOSE) build api
 
 up:
 	$(COMPOSE) up
@@ -32,25 +32,25 @@ update-req:
 all-check: format test typecheck lint-fix
 
 typecheck:
-	$(RUN) app mypy ./src
+	$(RUN) api mypy ./src
 
 format:
-	$(RUN) app python -m ruff format ./src
+	$(RUN) api python -m ruff format ./src
 
 format-check:
-	$(RUN) app python -m ruff format ./src --check
+	$(RUN) api python -m ruff format ./src --check
 
 lint:
-	$(RUN) app python -m ruff check ./src
+	$(RUN) api python -m ruff check ./src
 
 lint-fix:
-	$(RUN) app python -m ruff check ./src --fix
+	$(RUN) api python -m ruff check ./src --fix
 
 test:
-	$(RUN) app python -m pytest
+	$(RUN) api python -m pytest
 
 draw-graph:
-	$(RUN) app python scripts/draw_graph.py
+	$(RUN) api python scripts/draw_graph.py
 
 publish:
 	ngrok http --domain=$(LOCAL_PUBLISH_DOMAIN) 8000
