@@ -27,14 +27,9 @@ def _fmt_dt(dt: datetime | None) -> str | None:
 
 
 @router.get("/customers")
-def list_customers(page: int = 1, per_page: int = 20, db: Session = Depends(get_db)):
+def list_customers(page: int = 1, per_page: int = 20, db: Session = Depends(get_db)) -> dict:
     offset = (page - 1) * per_page
-    total = (
-        db.query(func.count(Customer.id.distinct()))
-        .join(Message, Message.customer_id == Customer.id)
-        .scalar()
-        or 0
-    )
+    total = db.query(func.count(Customer.id.distinct())).join(Message, Message.customer_id == Customer.id).scalar() or 0
     rows = (
         db.query(
             Customer.id,
@@ -69,7 +64,7 @@ def list_customers(page: int = 1, per_page: int = 20, db: Session = Depends(get_
 
 
 @router.get("/customers/{phone}")
-def get_customer(phone: str, db: Session = Depends(get_db)):
+def get_customer(phone: str, db: Session = Depends(get_db)) -> dict:
     customer = db.query(Customer).filter(Customer.phone == phone).one_or_none()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -77,18 +72,12 @@ def get_customer(phone: str, db: Session = Depends(get_db)):
 
 
 @router.get("/customers/{phone}/messages")
-def list_customer_messages(phone: str, page: int = 0, per_page: int = 50, db: Session = Depends(get_db)):
+def list_customer_messages(phone: str, page: int = 0, per_page: int = 50, db: Session = Depends(get_db)) -> dict:
     customer = db.query(Customer).filter(Customer.phone == phone).one_or_none()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     limit = (page + 1) * per_page
-    msgs = (
-        db.query(Message)
-        .filter(Message.customer_id == customer.id)
-        .order_by(Message.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    msgs = db.query(Message).filter(Message.customer_id == customer.id).order_by(Message.created_at.desc()).limit(limit).all()
     return {
         "items": [
             {
@@ -109,7 +98,7 @@ class SendMessageBody(BaseModel):
 
 
 @router.post("/customers/{phone}/messages")
-def send_customer_message(phone: str, body: SendMessageBody):
+def send_customer_message(phone: str, body: SendMessageBody) -> dict:
     chatapp.client.send_text_message(phone, body.text)
     return {"status": "ok"}
 
@@ -120,7 +109,7 @@ def list_reservations(
     show_voided: bool = False,
     show_cancelled: bool = False,
     db: Session = Depends(get_db),
-):
+) -> dict:
     excluded = []
     if not show_completed:
         excluded.append(ReservationStatus.COMPLETED)
@@ -153,7 +142,7 @@ def list_reservations(
 
 
 @router.get("/reservations/{reservation_id}")
-def get_reservation(reservation_id: int, db: Session = Depends(get_db)):
+def get_reservation(reservation_id: int, db: Session = Depends(get_db)) -> dict:
     row = (
         db.query(Reservation, Customer, BookingRequest)
         .join(Customer, Customer.id == Reservation.customer_id)
@@ -189,7 +178,7 @@ class UpdateStatusBody(BaseModel):
 
 
 @router.patch("/reservations/{reservation_id}/status")
-def update_reservation_status(reservation_id: int, body: UpdateStatusBody, db: Session = Depends(get_db)):
+def update_reservation_status(reservation_id: int, body: UpdateStatusBody, db: Session = Depends(get_db)) -> dict:
     repo = Repository(db)
     reservation = repo.update_reservation_status(reservation_id, body.status)
     if not reservation:

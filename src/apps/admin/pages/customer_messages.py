@@ -19,6 +19,7 @@ if phone and phone != st.query_params.get("phone", ""):
 page = int(st.query_params.get("page", "0"))
 
 if phone:
+    customer: dict | None
     try:
         customer = api_get(f"/admin/customers/{phone}")
     except Exception:

@@ -13,6 +13,7 @@ if not reservation_id:
 
 reservation_id = int(reservation_id)
 
+row: dict | None
 try:
     row = api_get(f"/admin/reservations/{reservation_id}")
 except Exception:
