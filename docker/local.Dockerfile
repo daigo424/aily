@@ -16,8 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt requirements-dev.txt ./
-RUN python -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN pip install uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv export --group dev --no-hashes -o /tmp/reqs.txt && \
+    pip install --no-cache-dir -r /tmp/reqs.txt
 
 COPY . .
