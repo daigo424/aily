@@ -4,7 +4,7 @@ import sys
 import streamlit as st
 
 root_path = os.environ.get("APP_ROOT")
-if root_path not in sys.path:
+if root_path is not None and root_path not in sys.path:
     sys.path.insert(0, root_path)
 
 st.set_page_config(page_title="WhatsApp Booking Admin", layout="wide")
