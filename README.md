@@ -169,11 +169,7 @@ make typecheck     # mypy
 make test          # pytest
 
 make draw-graph    # Regenerate doc/graph.png
-make update-req    # Sync requirements files from pyproject.toml
 ```
-
-> **Note:** `requirements.txt` and `requirements-dev.txt` are generated from `pyproject.toml` via `uv export`.  
-> A GitHub Actions workflow blocks merges when they are out of sync.
 
 ## Database Tables
 
@@ -188,4 +184,4 @@ make update-req    # Sync requirements files from pyproject.toml
 
 ## CI
 
-`.github/workflows/check-requirements.yml` runs on PRs that touch `pyproject.toml` or `uv.lock` and fails if `requirements.txt` / `requirements-dev.txt` are stale.
+`.github/workflows/ci.yml` runs lint, format check, and typecheck on every PR.
