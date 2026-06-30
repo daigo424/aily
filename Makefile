@@ -80,3 +80,14 @@ db:
 
 db-atlas-dev:
 	$(EXEC) db_dev psql "$(APP_ATLAS_DEV_DB_URL)"
+
+# --- LLM ---
+
+vllm-start:
+	ollama run $(LLM_MODEL)
+
+vllm-clear:
+	ollama rm $(LLM_MODEL)
+
+vllm-list:
+	ollama list

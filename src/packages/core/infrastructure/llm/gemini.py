@@ -36,14 +36,5 @@ class Gemini(Interface):
         )
         return (response.text or "").strip()
 
-    def gen_content_from_audio(self, audio_bytes: bytes, mime_type: str | None) -> str:
-        prompt = "この音声を日本語で文字起こししてください。予約内容の抽出に使うので、話された文をできるだけそのまま返してください。"
-        response = self.client.models.generate_content(
-            model=settings.gemini_model,
-            contents=cast(Any, [prompt, types.Part.from_bytes(data=audio_bytes, mime_type=mime_type or "audio/mpeg")]),
-            config=types.GenerateContentConfig(temperature=0.0),
-        )
-        return (response.text or "").strip()
-
 
 client = Gemini(api_key=settings.gemini_api_key)

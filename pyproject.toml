@@ -6,6 +6,7 @@ dependencies = [
     "google-genai>=1.55.0",
     "langgraph>=1.1.6",
     "langgraph-checkpoint-postgres>=2.0",
+    "openai>=2.44.0",
     "pgvector==0.4.1",
     "psycopg2-binary>=2.9.11",
     "psycopg[binary,pool]>=3.2",

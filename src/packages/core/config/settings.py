@@ -10,8 +10,10 @@ class Settings(BaseSettings):
     whatsapp_token: str
     whatsapp_phone_number_id: str
     whatsapp_graph_api_version: str = "v24.0"
-    gemini_api_key: str
-    gemini_model: str = "gemini-2.5-flash"
+    llm_provider: str = "vllm"
+    llm_base_url: str = ""
+    llm_api_key: str = "dummy"
+    llm_model: str = ""
     app_db_host: str
     app_db_name: str
     app_db_username: str
