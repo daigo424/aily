@@ -280,7 +280,13 @@ jobs:
           kubectl create namespace aily --dry-run=client -o yaml | kubectl apply -f -
           kubectl create secret generic aily-secret \
             --namespace aily \
-            --from-literal=database-url="$DATABASE_URL" \
-            --from-literal=artifact-root="$ARTIFACT_ROOT" \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=ARTIFACT_ROOT="$ARTIFACT_ROOT" \
+            --from-literal=DB_HOST="$DB_HOST" \
+            --from-literal=DB_USERNAME="$DB_USERNAME" \
+            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --from-literal=DB_PORT="$DB_PORT" \
+            --from-literal=APP_DB_NAME="app" \
+            --from-literal=CP_CONVERSATION_DB_NAME="cp_conversation" \
             --save-config \
             --dry-run=client -o yaml | kubectl apply -f -

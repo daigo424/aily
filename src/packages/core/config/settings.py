@@ -6,9 +6,9 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     app_base_url: str = "http://localhost:8000"
-    verify_token: str
-    whatsapp_token: str
-    whatsapp_phone_number_id: str
+    verify_token: str = ""
+    whatsapp_token: str = ""
+    whatsapp_phone_number_id: str = ""
     whatsapp_graph_api_version: str = "v24.0"
     llm_provider: str = "vllm"
     llm_base_url: str = ""
