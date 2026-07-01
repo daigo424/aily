@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aily-api
+  namespace: aily
+spec:
+  type: ClusterIP
+  selector:
+    app: aily-api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP

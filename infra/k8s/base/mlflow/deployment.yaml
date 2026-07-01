@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: aily
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      serviceAccountName: mlflow
+      containers:
+        - name: mlflow
+          image: REPLACE_WITH_ECR_MLFLOW_URL
+          command:
+            - mlflow
+            - server
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "5000"
+            - --backend-store-uri
+            - $(BACKEND_STORE_URI)
+            - --default-artifact-root
+            - $(ARTIFACT_ROOT)
+            - --allowed-hosts
+            - "*"
+          ports:
+            - containerPort: 5000
+          env:
+            - name: BACKEND_STORE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mlflow-secret
+                  key: database-url
+            - name: ARTIFACT_ROOT
+              valueFrom:
+                secretKeyRef:
+                  name: mlflow-secret
+                  key: artifact-root
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30

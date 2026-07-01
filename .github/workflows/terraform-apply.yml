@@ -1,0 +1,283 @@
+name: terraform-apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options: [test, prod]
+      compute_enabled:
+        description: "EKS・NAT・IRSA を作成するか (false で削除。RDS・S3 は保持)"
+        required: true
+        type: boolean
+        default: false
+
+env:
+  TF_WORKING_DIR: "infra/terraform"   # Change to e.g. "terraform" if .tf files are in a subdirectory
+  ARGOCD_CHART_VERSION: "9.5.22"
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block prod deployment from non-main branch
+        if: github.event.inputs.environment == 'prod' && github.ref != 'refs/heads/main'
+        run: |
+          echo "prod deployment is only allowed from main branch (current: ${{ github.ref }})"
+          exit 1
+
+  apply:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve account ID
+        id: account
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            prod) echo "id=${{ vars.PROD_AWS_ACCOUNT_ID }}" >> "$GITHUB_OUTPUT" ;;
+            test) echo "id=${{ vars.TEST_AWS_ACCOUNT_ID }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/GitHubActionsWorkloadDeployRole
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init -backend-config=backend.hcl \
+            -backend-config="key=workloads/${{ vars.WORKLOAD_NAME }}/${{ github.event.inputs.environment }}/additional_github_repos/${{ github.repository }}/terraform.tfstate"
+
+      - name: Drain Karpenter nodes before destroy
+        if: github.event.inputs.compute_enabled == 'false'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "")
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "No EKS cluster in state, skipping NodeClaim cleanup"
+            exit 0
+          fi
+
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1 || {
+            echo "Could not connect to EKS cluster, skipping NodeClaim cleanup"
+            exit 0
+          }
+
+          kubectl delete nodeclaims --all --ignore-not-found=true
+          kubectl wait --for=delete nodeclaims --all --timeout=5m || true
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_environment:             ${{ github.event.inputs.environment }}
+          TF_VAR_compute_enabled:         ${{ github.event.inputs.compute_enabled }}
+          TF_VAR_docker_hub_username:     ${{ secrets.DOCKER_HUB_USERNAME }}
+          TF_VAR_docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        run: terraform apply -input=false -auto-approve
+
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Record compute state
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          COMPUTE="${{ github.event.inputs.compute_enabled }}"
+          VAR_NAME="COMPUTE_ENABLED_$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
+          gh variable set "$VAR_NAME" --body "$COMPUTE"
+
+      - name: Record bastion instance ID
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          INSTANCE_ID=$(terraform output -raw bastion_instance_id 2>/dev/null || echo "")
+          [ -z "$INSTANCE_ID" ] && exit 0
+          VAR_NAME="BASTION_INSTANCE_ID_$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
+          gh variable set "$VAR_NAME" --body "$INSTANCE_ID"
+
+      - name: Fill K8s placeholders from Terraform outputs
+        if: github.event.inputs.compute_enabled == 'true'
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          AWS_ACCOUNT_ID="${{ steps.account.outputs.id }}"
+          TF="$GITHUB_WORKSPACE/${{ env.TF_WORKING_DIR }}"
+          CLUSTER_NAME=$(terraform -chdir="$TF" output -raw eks_cluster_name)
+          VPC_ID=$(terraform -chdir="$TF" output -raw vpc_id)
+          BUCKET=$(terraform -chdir="$TF" output -raw ml_data_bucket_name)
+          LBC_ARN=$(terraform -chdir="$TF" output -raw lbc_role_arn)
+          ARGO_ARN=$(terraform -chdir="$TF" output -raw ml_workflow_role_arn)
+          ARGO_WORKFLOWS_SERVER_ARN=$(terraform -chdir="$TF" output -raw argo_workflows_server_role_arn)
+          K8S="$GITHUB_WORKSPACE/infra/k8s"
+
+          shopt -s globstar # ** を使えるように Bash の設定を有効化
+          sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g"     "$K8S/apps/${ENV}/**/*.yaml"
+          sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/apps/${ENV}/aws-lbc.yaml"
+          sed -i "s|REPLACE_WITH_VPC_ID|$VPC_ID|g"                     "$K8S/apps/${ENV}/aws-lbc.yaml"
+          sed -i "s|REPLACE_WITH_LBC_IRSA_ARN|$LBC_ARN|g"             "$K8S/apps/${ENV}/aws-lbc.yaml"
+          sed -i "s|REPLACE_WITH_ARGO_WORKFLOWS_IRSA_ARN|$ARGO_ARN|g" "$K8S/overlays/${ENV}/ml-workflow/kustomization.yaml"
+          sed -i "s|REPLACE_WITH_ARGO_WORKFLOWS_SERVER_IRSA_ARN|$ARGO_WORKFLOWS_SERVER_ARN|g" "$K8S/apps/${ENV}/argo-workflows.yaml"
+          sed -i "s|REPLACE_WITH_BUCKET_NAME|$BUCKET|g"               "$K8S/overlays/${ENV}/ml-workflow/ml-workflow-env.yaml"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add infra/k8s/
+          git diff --staged --quiet && echo "No placeholder changes" && exit 0
+
+          BRANCH="chore/fill-k8s-placeholders-${ENV}-${GITHUB_SHA}"
+          git checkout -b "$BRANCH"
+          git commit -m "chore(${ENV}): fill K8s placeholders from Terraform outputs"
+          git push --force origin "$BRANCH"
+
+          PR_URL=$(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || \
+            gh pr create \
+              --title "chore(${ENV}): fill K8s placeholders from Terraform outputs" \
+              --body "terraform-apply により自動生成（環境: ${ENV}）" \
+              --base main \
+              --head "$BRANCH")
+          gh pr merge "$PR_URL" --squash --admin --delete-branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Bootstrap ArgoCD root app
+        if: github.event.inputs.compute_enabled == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARGOCD_REPO_PASSWORD: ${{ secrets.GH_BOT_PAT }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+
+          kubectl wait --for=condition=Ready nodes --all --timeout=10m
+
+          helm repo add argo https://argoproj.github.io/argo-helm
+          helm repo update
+
+          kubectl wait --for=condition=Available deployment/coredns -n kube-system --timeout=5m
+
+          HELM_STATUS=$(helm status argocd -n argocd 2>/dev/null | grep "^STATUS:" | awk '{print $2}')
+          if [ -n "$HELM_STATUS" ] && [ "$HELM_STATUS" != "deployed" ]; then
+            echo "Cleaning up argocd release in state: $HELM_STATUS"
+            helm uninstall argocd -n argocd || true
+            sleep 10
+          fi
+
+          helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd \
+            --create-namespace \
+            --version "$ARGOCD_CHART_VERSION" \
+            --set configs.params."server\.insecure"=true \
+            --wait \
+            --timeout 10m || {
+            echo "=== ArgoCD pod status ==="
+            kubectl get pods -n argocd -o wide || true
+            echo "=== ArgoCD events ==="
+            kubectl get events -n argocd --sort-by='.lastTimestamp' | tail -30 || true
+            echo "=== Node resource usage ==="
+            kubectl describe nodes | grep -A 10 "Allocated resources" || true
+            exit 1
+          }
+
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: aily-repo
+            namespace: argocd
+            labels:
+              argocd.argoproj.io/secret-type: repository
+          stringData:
+            type: git
+            url: https://github.com/daigo424/aily
+            username: x-access-token
+            password: "${ARGOCD_REPO_PASSWORD}"
+          EOF
+
+          sed "s|targetRevision: .*|targetRevision: ${{ github.ref_name }}|" \
+            "$GITHUB_WORKSPACE/infra/k8s/bootstrap/root-app-${ENV}.yaml" | kubectl apply -f -
+
+      - name: Create databases
+        if: github.event.inputs.compute_enabled == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAMES:  ${{ vars.DB_NAMES }}
+        run: |
+          RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          kubectl run db-init \
+            --image=postgres:16-alpine \
+            --restart=Never \
+            --namespace=default \
+            --env="PGPASSWORD=${DB_PASSWORD}" \
+            --env="RDS_ENDPOINT=${RDS_ENDPOINT}" \
+            --env="DB_NAMES=${DB_NAMES}" \
+            --command -- sh -c \
+            'for db in $DB_NAMES; do
+               result=$(psql "postgresql://appuser@$RDS_ENDPOINT/ml_app" -c "CREATE DATABASE $db" 2>&1)
+               echo "$result"
+               echo "$result" | grep -qE "CREATE DATABASE|already exists" || exit 1
+             done'
+
+          kubectl wait pod/db-init \
+            --for=jsonpath='{.status.phase}'=Succeeded \
+            --timeout=120s || { kubectl logs db-init -n default; kubectl delete pod db-init -n default --ignore-not-found=true; exit 1; }
+          kubectl delete pod db-init -n default --ignore-not-found=true
+
+      - name: Create grafana-admin-secret
+        if: github.event.inputs.compute_enabled == 'true'
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic grafana-admin-secret \
+            --namespace monitoring \
+            --from-literal=admin-user="admin" \
+            --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secret
+        if: github.event.inputs.compute_enabled == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          DB_HOST=$(echo "${RDS_ENDPOINT}" | cut -d: -f1)
+          DB_NAME="mlflow"
+          DB_USERNAME="appuser"
+          DB_PORT=$(echo "${RDS_ENDPOINT}" | cut -d: -f2)
+          DATABASE_URL="postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+          REDIS_HOST="redis-master.redis.svc.cluster.local"
+          REDIS_PORT="6379"
+          REDIS_PASSWORD=""
+          REDIS_SSL="false"
+          ARTIFACT_ROOT="s3://$(terraform output -raw ml_data_bucket_name)/mlflow-artifacts"
+
+          kubectl create namespace aily --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic aily-secret \
+            --namespace aily \
+            --from-literal=database-url="$DATABASE_URL" \
+            --from-literal=artifact-root="$ARTIFACT_ROOT" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -

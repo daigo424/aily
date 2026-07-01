@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       src: ${{ steps.filter.outputs.src }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -26,11 +27,19 @@ jobs:
               - 'src/**'
               - 'pyproject.toml'
               - 'uv.lock'
+            terraform:
+              - 'infra/terraform/**'
 
   ci:
     needs: changes
     if: needs.changes.outputs.src == 'true'
     uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  terraform-plan:
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+    uses: ./.github/workflows/terraform-plan.yml
     secrets: inherit
 
   gate:

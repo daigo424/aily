@@ -91,3 +91,53 @@ vllm-clear:
 
 vllm-list:
 	ollama list
+
+# --- AWS / EKS / ArgoCD ---
+
+AWS_ENV ?= test
+
+get-caller-identity:
+	aws sts get-caller-identity
+
+rds-tunnel: check-aws-profile
+	python scripts/rds_tunnel.py --env $(AWS_ENV)
+
+check-aws-profile:
+ifndef AWS_PROFILE
+	$(error AWS_PROFILE が未設定です。export AWS_PROFILE=<profile> を実行するか、.env に AWS_PROFILE=<profile> を追記してください)
+endif
+
+kubeconfig: check-aws-profile
+	aws eks update-kubeconfig --name $(shell aws eks list-clusters --query 'clusters[0]' --output text) --region ap-northeast-1 --role-arn arn:aws:iam::$(shell aws sts get-caller-identity --query Account --output text):role/$(shell aws eks list-clusters --query 'clusters[0]' --output text)-eks-developer
+
+argocd-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo ArgoCD UI: http://localhost:18080
+	@echo Username:  admin
+	kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | python -c "import sys,base64; print('Password:  ' + base64.b64decode(sys.stdin.read().strip()).decode())"
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py argocd-server argocd 18080:80
+
+monitoring-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo Grafana UI: http://localhost:13000
+	@echo Username:  admin
+	@echo Password:  admin
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py monitoring-grafana monitoring 13000:80
+
+mlflow-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo MLflow UI: http://localhost:15000
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py mlflow mlflow 15000:5000
+
+argoworkflow-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo Argo Workflows UI: http://localhost:12000
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py argo-workflows-server argo 12000:2746

@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-workflows
+    targetRevision: "1.0.x"
+    helm:
+      valuesObject:
+        controller:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          workflowDefaults:
+            spec:
+              archiveLogs: true
+        server:
+          authModes:
+            - server
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          serviceAccount:
+            create: true
+            name: argo-workflows-server
+            annotations:
+              eks.amazonaws.com/role-arn: REPLACE_WITH_ARGO_WORKFLOWS_SERVER_IRSA_ARN
+        workflow:
+          serviceAccount:
+            create: true
+            name: argo-workflows
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
