@@ -1,12 +1,13 @@
 services:
   api:
     build:
-      context: ..
-      dockerfile: docker/local.Dockerfile
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.aily-api
+      target: dev
     container_name: api
     working_dir: /app
     volumes:
-      - ..:/app
+      - ../..:/app
     depends_on:
       db:
         condition: service_healthy
@@ -20,12 +21,13 @@ services:
 
   admin:
     build:
-      context: ..
-      dockerfile: docker/local.Dockerfile
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.admin
+      target: dev
     container_name: admin
     working_dir: /app
     volumes:
-      - ..:/app
+      - ../..:/app
     depends_on:
       - api
     environment:
@@ -36,14 +38,15 @@ services:
       - "8501:8501"
     command: streamlit run src/apps/admin/main.py --server.address=0.0.0.0 --server.port=8501
 
-  chat:
+  frontend:
     build:
-      context: ..
-      dockerfile: docker/local.Dockerfile
-    container_name: chat
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.aily-frontend
+      target: dev
+    container_name: frontend
     working_dir: /app
     volumes:
-      - ..:/app
+      - ../..:/app
     depends_on:
       - api
     environment:
@@ -52,7 +55,31 @@ services:
       API_BASE_URL: http://api:8000
     ports:
       - "8502:8502"
-    command: streamlit run src/apps/chat/main.py --server.address=0.0.0.0 --server.port=8502
+    command: streamlit run src/apps/frontend/main.py --server.address=0.0.0.0 --server.port=8502
+
+  mlflow:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.mlflow
+    container_name: mlflow
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - MLFLOW_SERVER_ALLOWED_HOSTS=*
+    volumes:
+      - ../../data:/app/data
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql+psycopg2://${DB_USERNAME}:${DB_PASSWORD}@db:${DB_PORT}/${MLFLOW_DB_NAME}
+      --serve-artifacts
+      --artifacts-destination /app/data/mlflow-artifacts
+      --default-artifact-root mlflow-artifacts:/
+    ports:
+      - "5000:5000"
 
   db:
     image: pgvector/pgvector:pg17
@@ -95,14 +122,14 @@ services:
 
   atlas:
     build:
-      context: ..
-      dockerfile: docker/atlas.Dockerfile
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.atlas
     container_name: atlas_cli
     working_dir: /workspace
     volumes:
-      - ../db:/workspace
+      - ../../db:/workspace
     env_file:
-      - ../.env
+      - ../../.env
     depends_on:
       db:
         condition: service_healthy

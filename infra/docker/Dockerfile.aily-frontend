@@ -1,0 +1,40 @@
+FROM python:3.12-slim AS base
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV TZ=Asia/Tokyo
+ENV PYTHONPATH=/app/src
+
+WORKDIR /app
+
+FROM base AS dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    tzdata \
+    postgresql-client \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv export --group dev --no-hashes -o /tmp/reqs.txt && \
+    pip install --no-cache-dir -r /tmp/reqs.txt
+
+COPY . .
+
+FROM base AS prod
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv export --no-dev --no-hashes -o /tmp/reqs.txt && \
+    pip install --no-cache-dir -r /tmp/reqs.txt
+
+COPY . .
+
+CMD ["sh", "-c", "streamlit run src/apps/frontend/main.py --server.address=0.0.0.0 --server.port=${PORT:-8502}"]

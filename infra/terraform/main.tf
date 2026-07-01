@@ -24,7 +24,7 @@ module "ecr" {
   docker_hub_username     = var.docker_hub_username
   docker_hub_access_token = var.docker_hub_access_token
 
-  services = ["api", "frontend", "ml-workflow", "mlflow"]
+  services = ["aily-api", "aily-frontend", "mlflow"]
 }
 
 module "bastion" {

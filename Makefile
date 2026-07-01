@@ -4,20 +4,20 @@ export
 
 ATLAS := atlas
 ATLAS_ENV := local
-COMPOSE := docker compose -f docker/docker-compose.local.yml
+COMPOSE := docker compose -f infra/docker/docker-compose.local.yml
 RUN := $(COMPOSE) run --rm --remove-orphans
 EXEC := $(COMPOSE) exec
-APP_DB_URL := postgresql://$(APP_DB_USERNAME):$(APP_DB_PASSWORD)@$(APP_DB_HOST):$(APP_DB_PORT)/$(APP_DB_NAME)?sslmode=$(APP_DB_SSLMODE)
-APP_ATLAS_DEV_DB_URL := postgresql://$(APP_ATLAS_DEV_DB_USERNAME):$(APP_ATLAS_DEV_DB_PASSWORD)@$(APP_ATLAS_DEV_DB_HOST):$(APP_ATLAS_DEV_DB_PORT)/$(APP_ATLAS_DEV_DB_NAME)?sslmode=$(APP_ATLAS_DEV_DB_SSLMODE)
+APP_DB_URL := postgresql://$(DB_USERNAME):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(APP_DB_NAME)?sslmode=$(DB_SSLMODE)
+APP_ATLAS_DEV_DB_URL := postgresql://$(DB_USERNAME):$(DB_PASSWORD)@$(DB_DEV_HOST):$(DB_PORT)/$(APP_ATLAS_DEV_DB_NAME)?sslmode=$(DB_SSLMODE)
 
 build:
 	$(COMPOSE) build
 
-build-no-cache:
-	$(COMPOSE) build --no-cache
-
 build-api:
 	$(COMPOSE) build api
+
+build-no-cache:
+	$(COMPOSE) build --no-cache
 
 up:
 	$(COMPOSE) up
@@ -64,7 +64,7 @@ atlas-apply-test:
 	$(RUN) atlas schema apply --env test --config "file://app/atlas.hcl"
 
 rm-volumes:
-	docker compose -f docker/docker-compose.local.yml down --volumes
+	docker compose -f infra/docker/docker-compose.local.yml down --volumes
 
 ps:
 	$(COMPOSE) ps

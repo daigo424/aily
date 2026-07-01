@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: aily-api
+  name: aily-frontend
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "3"
@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/daigo424/aily
     targetRevision: main
-    path: infra/k8s/overlays/prod/api
+    path: infra/k8s/overlays/prod/aily-frontend
   destination:
     server: https://kubernetes.default.svc
     namespace: aily

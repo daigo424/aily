@@ -1,6 +1,6 @@
 variable "db_host" {
     type    = string
-    default = getenv("APP_DB_HOST")
+    default = getenv("DB_HOST")
 }
 
 variable "db_name" {
@@ -10,27 +10,27 @@ variable "db_name" {
 
 variable "db_username" {
     type    = string
-    default = getenv("APP_DB_USERNAME")
+    default = getenv("DB_USERNAME")
 }
 
 variable "db_password" {
     type    = string
-    default = getenv("APP_DB_PASSWORD")
+    default = getenv("DB_PASSWORD")
 }
 
 variable "db_port" {
     type    = string
-    default = getenv("APP_DB_PORT")
+    default = getenv("DB_PORT")
 }
 
 variable "db_sslmode" {
     type    = string
-    default = getenv("APP_DB_SSLMODE")
+    default = getenv("DB_SSLMODE")
 }
 
 variable "dev_db_host" {
     type    = string
-    default = getenv("APP_ATLAS_DEV_DB_HOST")
+    default = getenv("DB_DEV_HOST")
 }
 
 variable "dev_db_name" {
@@ -40,22 +40,22 @@ variable "dev_db_name" {
 
 variable "dev_db_username" {
     type    = string
-    default = getenv("APP_ATLAS_DEV_DB_USERNAME")
+    default = getenv("DB_USERNAME")
 }
 
 variable "dev_db_password" {
     type    = string
-    default = getenv("APP_ATLAS_DEV_DB_PASSWORD")
+    default = getenv("DB_PASSWORD")
 }
 
 variable "dev_db_port" {
     type    = string
-    default = getenv("APP_ATLAS_DEV_DB_PORT")
+    default = getenv("DB_PORT")
 }
 
 variable "dev_db_sslmode" {
     type    = string
-    default = getenv("APP_ATLAS_DEV_DB_SSLMODE")
+    default = getenv("DB_SSLMODE")
 }
 
 locals {
