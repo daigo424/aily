@@ -221,6 +221,7 @@ jobs:
           DB_NAMES:  ${{ vars.DB_NAMES }}
         run: |
           RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          kubectl delete pod db-init -n default --ignore-not-found=true
           kubectl run db-init \
             --image=postgres:16-alpine \
             --restart=Never \
