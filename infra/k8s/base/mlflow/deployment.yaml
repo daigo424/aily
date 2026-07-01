@@ -36,12 +36,12 @@ spec:
             - name: BACKEND_STORE_URI
               valueFrom:
                 secretKeyRef:
-                  name: mlflow-secret
+                  name: aily-secret
                   key: database-url
             - name: ARTIFACT_ROOT
               valueFrom:
                 secretKeyRef:
-                  name: mlflow-secret
+                  name: aily-secret
                   key: artifact-root
           resources:
             requests:
