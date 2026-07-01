@@ -57,11 +57,11 @@ output "rds_db_name" {
 
 # IRSA
 output "karpenter_role_arn" {
-  value = try(module.eks[0].karpenter_role_arn, null)
+  value = try(module.karpenter[0].role_arn, null)
 }
 
 output "karpenter_queue_name" {
-  value = try(module.eks[0].karpenter_queue_name, null)
+  value = try(module.karpenter[0].queue_name, null)
 }
 
 output "node_role_name" {
