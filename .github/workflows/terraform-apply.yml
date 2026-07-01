@@ -127,13 +127,15 @@ jobs:
           LBC_ARN=$(terraform -chdir="$TF" output -raw lbc_role_arn)
           ARGO_ARN=$(terraform -chdir="$TF" output -raw ml_workflow_role_arn)
           ARGO_WORKFLOWS_SERVER_ARN=$(terraform -chdir="$TF" output -raw argo_workflows_server_role_arn)
+          KARPENTER_ROLE_ARN=$(terraform -chdir="$TF" output -raw karpenter_role_arn)
           K8S="$GITHUB_WORKSPACE/infra/k8s"
 
           find "$K8S/apps/${ENV}" -name "*.yaml" -exec sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g" {} +
-          sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/apps/${ENV}/aws-lbc.yaml"
+          find "$K8S/apps/${ENV}" -name "*.yaml" -exec sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g" {} +
           sed -i "s|REPLACE_WITH_VPC_ID|$VPC_ID|g"                     "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_LBC_IRSA_ARN|$LBC_ARN|g"             "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_ARGO_WORKFLOWS_SERVER_IRSA_ARN|$ARGO_WORKFLOWS_SERVER_ARN|g" "$K8S/apps/${ENV}/argo-workflows.yaml"
+          sed -i "s|REPLACE_WITH_KARPENTER_ROLE_ARN|$KARPENTER_ROLE_ARN|g" "$K8S/apps/${ENV}/karpenter.yaml"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
