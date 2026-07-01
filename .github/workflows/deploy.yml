@@ -101,7 +101,7 @@ jobs:
       - name: Set image variables
         id: img
         run: |
-          echo "ecr_base=${{ steps.account.outputs.id }}.dkr.ecr.ap-northeast-1.amazonaws.com/weather-forecast-ai-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          echo "ecr_base=${{ steps.account.outputs.id }}.dkr.ecr.ap-northeast-1.amazonaws.com/aily-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
           echo "tag=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Build and push ${{ matrix.service }}
