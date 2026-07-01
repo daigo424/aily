@@ -32,7 +32,7 @@ spec:
             create: true
             name: argo-workflows-server
             annotations:
-              eks.amazonaws.com/role-arn: REPLACE_WITH_ARGO_WORKFLOWS_SERVER_IRSA_ARN
+              eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-argo-workflows-server-role
         workflow:
           serviceAccount:
             create: true
