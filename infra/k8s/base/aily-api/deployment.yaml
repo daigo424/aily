@@ -19,19 +19,14 @@ spec:
           image: REPLACE_WITH_ECR_AILY_API_URL
           ports:
             - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: aily-secret
           env:
             - name: MLFLOW_TRACKING_URI
               value: http://mlflow.mlflow.svc.cluster.local:5000
             - name: REDIS_HOST
               value: redis-master.redis.svc.cluster.local
-            - name: FEAST_REPO_PATH
-              value: /app/feature_store
-            - name: OPEN_METEO_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: open-meteo-secret
-                  key: api-key
-                  optional: true
           resources:
             requests:
               cpu: 200m
