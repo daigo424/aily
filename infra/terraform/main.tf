@@ -56,6 +56,19 @@ module "eks" {
   private_subnet_ids = module.network[0].private_subnet_ids
 }
 
+module "karpenter" {
+  count = local.create_compute ? 1 : 0
+
+  source                    = "./modules/karpenter"
+  name_prefix               = local.name_prefix
+  cluster_name              = module.eks[0].cluster_name
+  cluster_arn               = module.eks[0].cluster_arn
+  cluster_security_group_id = module.eks[0].cluster_security_group_id
+  oidc_provider_arn         = module.eks[0].oidc_provider_arn
+  oidc_provider_url         = module.eks[0].oidc_provider_url
+  node_role_arn             = module.eks[0].node_role_arn
+}
+
 module "iam_eks" {
   count = local.create_compute ? 1 : 0
 
