@@ -129,8 +129,7 @@ jobs:
           ARGO_WORKFLOWS_SERVER_ARN=$(terraform -chdir="$TF" output -raw argo_workflows_server_role_arn)
           K8S="$GITHUB_WORKSPACE/infra/k8s"
 
-          shopt -s globstar # ** を使えるように Bash の設定を有効化
-          sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g"     "$K8S/apps/${ENV}/**/*.yaml"
+          find "$K8S/apps/${ENV}" -name "*.yaml" -exec sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g" {} +
           sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_VPC_ID|$VPC_ID|g"                     "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_LBC_IRSA_ARN|$LBC_ARN|g"             "$K8S/apps/${ENV}/aws-lbc.yaml"
