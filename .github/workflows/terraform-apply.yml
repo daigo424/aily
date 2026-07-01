@@ -134,9 +134,7 @@ jobs:
           sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_VPC_ID|$VPC_ID|g"                     "$K8S/apps/${ENV}/aws-lbc.yaml"
           sed -i "s|REPLACE_WITH_LBC_IRSA_ARN|$LBC_ARN|g"             "$K8S/apps/${ENV}/aws-lbc.yaml"
-          sed -i "s|REPLACE_WITH_ARGO_WORKFLOWS_IRSA_ARN|$ARGO_ARN|g" "$K8S/overlays/${ENV}/ml-workflow/kustomization.yaml"
           sed -i "s|REPLACE_WITH_ARGO_WORKFLOWS_SERVER_IRSA_ARN|$ARGO_WORKFLOWS_SERVER_ARN|g" "$K8S/apps/${ENV}/argo-workflows.yaml"
-          sed -i "s|REPLACE_WITH_BUCKET_NAME|$BUCKET|g"               "$K8S/overlays/${ENV}/ml-workflow/ml-workflow-env.yaml"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

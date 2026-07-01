@@ -14,25 +14,21 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = "dummy"
     llm_model: str = ""
-    app_db_host: str
+    db_host: str
+    db_username: str
+    db_password: str
+    db_port: str
     app_db_name: str
-    app_db_username: str
-    app_db_password: str
-    app_db_port: str
-    cp_conversation_db_host: str
     cp_conversation_db_name: str
-    cp_conversation_db_username: str
-    cp_conversation_db_password: str
-    cp_conversation_db_port: str
     timezone: str = "Asia/Tokyo"
 
     @property
     def app_database_url(self) -> str:
-        return f"postgresql://{self.app_db_username}:{self.app_db_password}@{self.app_db_host}:{self.app_db_port}/{self.app_db_name}"
+        return f"postgresql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.app_db_name}"
 
     @property
     def cp_conversation_database_url(self) -> str:
-        return f"postgresql://{self.cp_conversation_db_username}:{self.cp_conversation_db_password}@{self.cp_conversation_db_host}:{self.cp_conversation_db_port}/{self.cp_conversation_db_name}"
+        return f"postgresql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.cp_conversation_db_name}"
 
 
 settings = Settings()  # type: ignore[call-arg]

@@ -15,6 +15,6 @@ patches:
     kind: ServiceAccount
     name: aily-api
 images:
-- name: REPLACE_WITH_ECR_API_URL
-  newName: REPLACE_WITH_ECR_API_URL
+- name: REPLACE_WITH_ECR_AILY_API_URL
+  newName: REPLACE_WITH_ECR_AILY_API_URL
   newTag: latest

@@ -16,7 +16,7 @@ spec:
       serviceAccountName: aily-api
       containers:
         - name: api
-          image: REPLACE_WITH_ECR_API_URL
+          image: REPLACE_WITH_ECR_AILY_API_URL
           ports:
             - containerPort: 8000
           env:

@@ -72,10 +72,10 @@ class LLMClient(Interface):
         return (response.choices[0].message.content or "").strip()
 
 
-openai_client = LLMClient(api_key=settings.openai_api_key, model=settings.openai_model)
+openai_client = LLMClient(api_key=settings.llm_api_key, model=settings.llm_model)
 
 vllm_client = LLMClient(
-    base_url=settings.vllm_base_url,
-    api_key=settings.vllm_api_key,
-    model=settings.vllm_model,
+    base_url=settings.llm_base_url,
+    api_key=settings.llm_api_key,
+    model=settings.llm_model,
 )
