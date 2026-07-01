@@ -8,11 +8,11 @@ on:
         required: true
         type: choice
         options: [test, prod]
-      aily-api:
+      aily_api:
         description: "Deploy aily-api"
         type: boolean
         default: false
-      aily-frontend:
+      aily_frontend:
         description: "Deploy aily-frontend"
         type: boolean
         default: false
