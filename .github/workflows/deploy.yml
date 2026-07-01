@@ -180,4 +180,4 @@ jobs:
             --base ${{ github.ref_name }} \
             --head "$BRANCH")
 
-          gh pr merge "$PR_URL" --squash --delete-branch
+          gh pr merge "$PR_URL" --squash --delete-branch --auto
