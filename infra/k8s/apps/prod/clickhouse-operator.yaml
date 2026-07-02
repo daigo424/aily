@@ -8,10 +8,9 @@ metadata:
 spec:
   project: default
   source:
-    # https://github.com/Altinity/clickhouse-operator
-    repoURL: https://docs.altinity.com/altinitykubernetesoperator/
-    chart: altinity-clickhouse-operator
-    targetRevision: "0.27.*"
+    repoURL: https://github.com/Altinity/clickhouse-operator.git
+    targetRevision: "release-0.27.1"
+    path: deploy/helm/clickhouse-operator
   destination:
     server: https://kubernetes.default.svc
     namespace: clickhouse-operator
