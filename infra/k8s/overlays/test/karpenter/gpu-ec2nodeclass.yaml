@@ -6,7 +6,7 @@ metadata:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
   amiSelectorTerms:
-    - alias: al2@latest
+    - alias: al2023@latest
   role: aily-test-eks-node-role
   subnetSelectorTerms:
     - tags:
