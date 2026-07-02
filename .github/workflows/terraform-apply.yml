@@ -79,14 +79,21 @@ jobs:
             exit 0
           }
 
-          # PVC を先に削除して EBS CSI finalizer を処理させる
-          # (ノードを先に消すと EBS CSI コントローラーが死んで finalizer が解除されず無限待ちになる)
+          # PVC を先に削除して EBS CSI に AWS 側 volume の削除を依頼
           kubectl delete pvc --all --all-namespaces --ignore-not-found=true
-          if ! kubectl wait pvc --for=delete --all --all-namespaces --timeout=10m 2>/dev/null; then
-            echo "::warning::Some PVCs did not finish deleting within 10m. Orphan check will catch any leaked EBS volumes."
-          fi
 
-          # PVC 削除完了後に NodeClaim を削除してノードを解放
+          # pvc-protection finalizer は使用中 Pod がいると自動解除されない
+          # destroy 目的なので全 PVC の finalizer を強制除去
+          kubectl get pvc --all-namespaces -o json 2>/dev/null | \
+            jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' | \
+            while read -r ns name; do
+              kubectl patch pvc "$name" -n "$ns" \
+                -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
+            done
+
+          kubectl wait pvc --for=delete --all --all-namespaces --timeout=3m 2>/dev/null || true
+
+          # NodeClaim を削除してノードを解放
           kubectl delete nodeclaims --all --ignore-not-found=true
           kubectl wait --for=delete nodeclaims --all --timeout=5m || true
 
