@@ -13,9 +13,12 @@ spec:
     path: deploy/helm/clickhouse-operator
     helm:
       values: |
-        operator:
-          watchNamespaces:
-            - "clickhouse"
+        configs:
+          config:
+            watch:
+              namespaces:
+                include:
+                  - clickhouse
   destination:
     server: https://kubernetes.default.svc
     namespace: clickhouse-operator
