@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-pvc
+  namespace: aily-ml
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: vllm-model-pv
+  resources:
+    requests:
+      storage: 100Gi

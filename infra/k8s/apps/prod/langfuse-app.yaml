@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: langfuse
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://langfuse.github.io/langfuse-k8s
+    chart: langfuse
+    targetRevision: "3.*"
+    helm:
+      valuesObject:
+        langfuse:
+          additionalEnv:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: DATABASE_URL
+            - name: NEXTAUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: NEXTAUTH_URL
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: NEXTAUTH_SECRET
+            - name: SALT
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: SALT
+            - name: REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: REDIS_CONNECTION_STRING
+            - name: CLICKHOUSE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: CLICKHOUSE_URL
+            - name: CLICKHOUSE_USER
+              value: langfuse
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: CLICKHOUSE_PASSWORD
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_ENABLED
+              value: "true"
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: S3_BUCKET
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_PREFIX
+              value: langfuse/
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_REGION
+              value: ap-northeast-1
+          serviceAccount:
+            annotations:
+              eks.amazonaws.com/role-arn: REPLACE_WITH_LANGFUSE_IRSA_ARN
+        postgresql:
+          enabled: false
+        redis:
+          enabled: false
+        clickhouse:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: langfuse
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

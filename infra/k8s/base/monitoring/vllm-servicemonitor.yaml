@@ -6,7 +6,7 @@ metadata:
 spec:
   namespaceSelector:
     matchNames:
-      - vllm
+      - aily-ml
   selector:
     matchLabels:
       app: vllm

@@ -1,0 +1,17 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: gpu
+spec:
+  amiSelectorTerms:
+    - alias: al2@latest
+  role: REPLACE_WITH_NODE_ROLE_NAME
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: aily-test
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: aily-test
+  tags:
+    karpenter.sh/discovery: aily-test
+    role: llm

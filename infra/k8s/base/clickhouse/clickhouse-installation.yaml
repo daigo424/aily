@@ -1,0 +1,50 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: langfuse
+  namespace: clickhouse
+spec:
+  configuration:
+    users:
+      langfuse/k8s_secret_password:
+        valueFrom:
+          secretKeyRef:
+            name: clickhouse-secret
+            namespace: clickhouse
+            key: password
+      langfuse/networks/ip: "::/0"
+      langfuse/profile: default
+    clusters:
+      - name: langfuse
+        layout:
+          shardsCount: 1
+          replicasCount: 1
+  templates:
+    podTemplates:
+      - name: default
+        spec:
+          tolerations:
+            - key: role
+              operator: Equal
+              value: clickhouse
+              effect: NoSchedule
+          nodeSelector:
+            role: clickhouse
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:25.5
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 8Gi
+                limits:
+                  memory: 14Gi
+    volumeClaimTemplates:
+      - name: default
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: gp3
+          resources:
+            requests:
+              storage: 100Gi

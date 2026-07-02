@@ -90,3 +90,13 @@ module "iam_role_sa" {
   ml_data_bucket_arn = module.ml_data.bucket_arn
   kms_key_arn        = module.ml_data.kms_key_arn
 }
+
+resource "aws_eks_addon" "s3_csi" {
+  count = local.create_compute ? 1 : 0
+
+  cluster_name             = module.eks[0].cluster_name
+  addon_name               = "aws-mountpoint-s3-csi-driver"
+  service_account_role_arn = module.iam_eks[0].s3_csi_role_arn
+
+  depends_on = [module.eks[0]]
+}

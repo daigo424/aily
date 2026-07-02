@@ -106,3 +106,54 @@ resource "aws_iam_role_policy" "argo_workflows_server" {
   role   = aws_iam_role.argo_workflows_server.id
   policy = data.aws_iam_policy_document.argo_workflows_server_policy.json
 }
+
+# -------------------------------------------------------
+# S3 CSI driver IRSA (Mountpoint for S3)
+# -------------------------------------------------------
+data "aws_iam_policy_document" "s3_csi_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider}:sub"
+      values   = ["system:serviceaccount:kube-system:s3-csi-driver-sa"]
+    }
+  }
+}
+
+resource "aws_iam_role" "s3_csi" {
+  name               = "${var.name_prefix}-s3-csi-role"
+  assume_role_policy = data.aws_iam_policy_document.s3_csi_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "s3_csi" {
+  role       = aws_iam_role.s3_csi.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy" "s3_csi_kms" {
+  name = "${var.name_prefix}-s3-csi-kms-policy"
+  role = aws_iam_role.s3_csi.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
+      Resource = [var.kms_key_arn]
+    }]
+  })
+}

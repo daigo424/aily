@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = "dummy"
     llm_model: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = ""
     db_host: str
     db_username: str
     db_password: str
