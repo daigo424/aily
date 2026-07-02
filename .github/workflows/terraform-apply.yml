@@ -129,6 +129,8 @@ jobs:
           ARGO_WORKFLOWS_SERVER_ARN=$(terraform -chdir="$TF" output -raw argo_workflows_server_role_arn)
           KARPENTER_ROLE_ARN=$(terraform -chdir="$TF" output -raw karpenter_role_arn)
           NODE_ROLE_NAME=$(terraform -chdir="$TF" output -raw node_role_name)
+          AILY_API_ROLE_ARN=$(terraform -chdir="$TF" output -raw weather_api_role_arn)
+          MLFLOW_ROLE_ARN=$(terraform -chdir="$TF" output -raw mlflow_role_arn)
           K8S="$GITHUB_WORKSPACE/infra/k8s"
 
           find "$K8S/apps/${ENV}" -name "*.yaml" -exec sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g" {} +
@@ -139,6 +141,8 @@ jobs:
           sed -i "s|REPLACE_WITH_KARPENTER_ROLE_ARN|$KARPENTER_ROLE_ARN|g" "$K8S/apps/${ENV}/karpenter.yaml"
           sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/overlays/${ENV}/karpenter/ec2nodeclass.yaml"
           sed -i "s|REPLACE_WITH_NODE_ROLE_NAME|$NODE_ROLE_NAME|g"     "$K8S/overlays/${ENV}/karpenter/ec2nodeclass.yaml"
+          sed -i "s|REPLACE_WITH_AILY_API_IRSA_ARN|$AILY_API_ROLE_ARN|g" "$K8S/overlays/${ENV}/aily-api/kustomization.yaml"
+          sed -i "s|REPLACE_WITH_MLFLOW_IRSA_ARN|$MLFLOW_ROLE_ARN|g"    "$K8S/overlays/${ENV}/mlflow/kustomization.yaml"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
