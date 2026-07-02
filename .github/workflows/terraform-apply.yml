@@ -160,6 +160,64 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
+      - name: Create grafana-admin-secret
+        if: github.event.inputs.compute_enabled == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic grafana-admin-secret \
+            --namespace monitoring \
+            --from-literal=admin-user="admin" \
+            --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secret
+        if: github.event.inputs.compute_enabled == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          GH_BOT_PAT: ${{ secrets.GH_BOT_PAT }}
+        run: |
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+
+          RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          DB_HOST=$(echo "${RDS_ENDPOINT}" | cut -d: -f1)
+          DB_NAME="mlflow"
+          DB_USERNAME="appuser"
+          DB_PORT=$(echo "${RDS_ENDPOINT}" | cut -d: -f2)
+          DATABASE_URL="postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+          ARTIFACT_ROOT="s3://$(terraform output -raw ml_data_bucket_name)/mlflow-artifacts"
+
+          kubectl create namespace aily --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic aily-secret \
+            --namespace aily \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=ARTIFACT_ROOT="$ARTIFACT_ROOT" \
+            --from-literal=DB_HOST="$DB_HOST" \
+            --from-literal=DB_USERNAME="$DB_USERNAME" \
+            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --from-literal=DB_PORT="$DB_PORT" \
+            --from-literal=DB_SSLMODE="require" \
+            --from-literal=APP_DB_NAME="app" \
+            --from-literal=CP_CONVERSATION_DB_NAME="cp_conversation" \
+            --from-literal=DB_DEV_HOST="$DB_HOST" \
+            --from-literal=APP_ATLAS_DEV_DB_NAME="app_test" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic aily-git-token \
+            --namespace aily \
+            --from-literal=token="${GH_BOT_PAT}" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Bootstrap ArgoCD root app
         if: github.event.inputs.compute_enabled == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -223,70 +281,31 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAMES:  ${{ vars.DB_NAMES }}
         run: |
           RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+          RDS_HOST=$(echo "${RDS_ENDPOINT}" | cut -d: -f1)
+          RDS_PORT=$(echo "${RDS_ENDPOINT}" | cut -d: -f2)
+
+          kubectl create configmap db-init-scripts \
+            --namespace default \
+            --from-file="$GITHUB_WORKSPACE/infra/docker/db/init/" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic db-init-secret \
+            --namespace default \
+            --from-literal=password="${DB_PASSWORD}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
           kubectl delete pod db-init -n default --ignore-not-found=true
-          kubectl run db-init \
-            --image=postgres:16-alpine \
-            --restart=Never \
-            --namespace=default \
-            --env="PGPASSWORD=${DB_PASSWORD}" \
-            --env="RDS_ENDPOINT=${RDS_ENDPOINT}" \
-            --env="DB_NAMES=${DB_NAMES}" \
-            --command -- sh -c \
-            'for db in $DB_NAMES; do
-               result=$(psql "postgresql://appuser@$RDS_ENDPOINT/ml_app" -c "CREATE DATABASE $db" 2>&1)
-               echo "$result"
-               echo "$result" | grep -qE "CREATE DATABASE|already exists" || exit 1
-             done'
+
+          RDS_HOST=$RDS_HOST RDS_PORT=$RDS_PORT \
+            envsubst '${RDS_HOST} ${RDS_PORT}' \
+            < "$GITHUB_WORKSPACE/.github/k8s/db-init.yaml" \
+            | kubectl apply -f -
 
           kubectl wait pod/db-init \
             --for=jsonpath='{.status.phase}'=Succeeded \
             --timeout=120s || { kubectl logs db-init -n default; kubectl delete pod db-init -n default --ignore-not-found=true; exit 1; }
           kubectl delete pod db-init -n default --ignore-not-found=true
-
-      - name: Create grafana-admin-secret
-        if: github.event.inputs.compute_enabled == 'true'
-        env:
-          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-        run: |
-          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic grafana-admin-secret \
-            --namespace monitoring \
-            --from-literal=admin-user="admin" \
-            --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
-            --save-config \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create secret
-        if: github.event.inputs.compute_enabled == 'true'
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
-          DB_HOST=$(echo "${RDS_ENDPOINT}" | cut -d: -f1)
-          DB_NAME="mlflow"
-          DB_USERNAME="appuser"
-          DB_PORT=$(echo "${RDS_ENDPOINT}" | cut -d: -f2)
-          DATABASE_URL="postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
-          REDIS_HOST="redis-master.redis.svc.cluster.local"
-          REDIS_PORT="6379"
-          REDIS_PASSWORD=""
-          REDIS_SSL="false"
-          ARTIFACT_ROOT="s3://$(terraform output -raw ml_data_bucket_name)/mlflow-artifacts"
-
-          kubectl create namespace aily --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic aily-secret \
-            --namespace aily \
-            --from-literal=DATABASE_URL="$DATABASE_URL" \
-            --from-literal=ARTIFACT_ROOT="$ARTIFACT_ROOT" \
-            --from-literal=DB_HOST="$DB_HOST" \
-            --from-literal=DB_USERNAME="$DB_USERNAME" \
-            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
-            --from-literal=DB_PORT="$DB_PORT" \
-            --from-literal=APP_DB_NAME="app" \
-            --from-literal=CP_CONVERSATION_DB_NAME="cp_conversation" \
-            --save-config \
-            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl delete configmap db-init-scripts -n default --ignore-not-found=true
+          kubectl delete secret db-init-secret -n default --ignore-not-found=true

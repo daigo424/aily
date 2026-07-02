@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: atlas-schema-apply
+  namespace: aily
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: git-clone
+          image: alpine/git:latest
+          command: [sh, -c, "git clone --depth=1 https://x-access-token:${GH_TOKEN}@github.com/daigo424/aily /workspace"]
+          env:
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aily-git-token
+                  key: token
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: atlas
+          image: arigaio/atlas:latest-alpine
+          command: [sh, -c]
+          args:
+            - |
+              atlas schema apply \
+                --env deploy \
+                --config "file:///workspace/db/app/atlas.hcl" \
+                --auto-approve
+          envFrom:
+            - secretRef:
+                name: aily-secret
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}

@@ -50,7 +50,7 @@ resource "aws_db_instance" "ml_db" {
   allocated_storage     = 20
   max_allocated_storage = 100
 
-  db_name  = "ml_app"
+  db_name  = "app"
   username = var.db_username
   password = "dummydummydummydummy"
 
@@ -62,7 +62,7 @@ resource "aws_db_instance" "ml_db" {
   apply_immediately   = true
 
   backup_retention_period   = 1
-  skip_final_snapshot       = false
+  skip_final_snapshot       = true
   final_snapshot_identifier = "${var.name_prefix}-final"
   deletion_protection       = false
 
