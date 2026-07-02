@@ -145,6 +145,7 @@ jobs:
           git add infra/k8s/
           git diff --staged --quiet && echo "No placeholder changes" && exit 0
 
+          BASE_BRANCH="${{ github.ref_name }}"
           BRANCH="chore/fill-k8s-placeholders-${ENV}-${GITHUB_SHA}"
           git checkout -b "$BRANCH"
           git commit -m "chore(${ENV}): fill K8s placeholders from Terraform outputs"
@@ -154,8 +155,9 @@ jobs:
             gh pr create \
               --title "chore(${ENV}): fill K8s placeholders from Terraform outputs" \
               --body "terraform-apply により自動生成（環境: ${ENV}）" \
-              --base main \
+              --base "$BASE_BRANCH" \
               --head "$BRANCH")
+          git fetch origin "$BASE_BRANCH" --depth=1
           gh pr merge "$PR_URL" --squash --admin --delete-branch
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
