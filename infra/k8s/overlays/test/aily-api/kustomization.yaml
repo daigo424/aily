@@ -10,7 +10,7 @@ patches:
     metadata:
       name: aily-api
       annotations:
-        eks.amazonaws.com/role-arn: REPLACE_WITH_AILY_API_IRSA_ARN
+        eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-aily-api-role
   target:
     kind: ServiceAccount
     name: aily-api
