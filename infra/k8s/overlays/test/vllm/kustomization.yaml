@@ -11,7 +11,7 @@ patches:
       metadata:
         name: vllm
         annotations:
-          eks.amazonaws.com/role-arn: REPLACE_WITH_VLLM_IRSA_ARN
+          eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-vllm-role
     target:
       kind: ServiceAccount
       name: vllm
@@ -27,7 +27,7 @@ patches:
               - name: vllm
                 env:
                   - name: LLM_MODEL
-                    value: REPLACE_WITH_LLM_MODEL
+                    value: Qwen/Qwen2.5-VL-7B-Instruct
     target:
       kind: Deployment
       name: vllm

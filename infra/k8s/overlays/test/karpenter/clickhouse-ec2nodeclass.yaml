@@ -5,7 +5,7 @@ metadata:
 spec:
   amiSelectorTerms:
     - alias: al2023@latest
-  role: REPLACE_WITH_NODE_ROLE_NAME
+  role: aily-test-eks-node-role
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: aily-test
