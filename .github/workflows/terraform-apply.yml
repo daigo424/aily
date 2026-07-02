@@ -247,6 +247,7 @@ jobs:
           sed -i "s|REPLACE_WITH_VLLM_IRSA_ARN|$VLLM_ROLE_ARN|g" "$K8S/overlays/${ENV}/vllm/kustomization.yaml"
           find "$K8S/overlays/${ENV}/vllm" -name "pv.yaml" \
             -exec sed -i "s|REPLACE_WITH_ML_DATA_BUCKET|$BUCKET|g" {} +
+          LLM_MODEL="${{ vars.LLM_MODEL }}"
           find "$K8S/overlays/${ENV}/vllm" -name "kustomization.yaml" \
             -exec sed -i "s|REPLACE_WITH_LLM_MODEL|$LLM_MODEL|g" {} +
           LANGFUSE_ROLE_ARN=$(terraform -chdir="$TF" output -raw langfuse_role_arn)
@@ -353,7 +354,7 @@ jobs:
           kubectl create secret generic langfuse-secret \
             --namespace langfuse \
             --from-literal=DATABASE_URL="${LANGFUSE_DB_URL}" \
-            --from-literal=NEXTAUTH_URL="${LANGFUSE_NEXTAUTH_URL:-http://langfuse.langfuse.svc.cluster.local:3000}" \
+            --from-literal=NEXTAUTH_URL="${LANGFUSE_NEXTAUTH_URL:-http://localhost:13001}" \
             --from-literal=NEXTAUTH_SECRET="${LANGFUSE_NEXTAUTH_SECRET}" \
             --from-literal=SALT="${LANGFUSE_SALT}" \
             --from-literal=REDIS_CONNECTION_STRING="redis://redis-master.redis.svc.cluster.local:6379" \

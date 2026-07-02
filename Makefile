@@ -142,6 +142,13 @@ argoworkflow-ui: check-aws-profile kubeconfig
 	@echo Port-forward starting... Ctrl+C to stop
 	python scripts/port_forward.py argo-workflows-server argo 12000:2746
 
+langfuse-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo Langfuse UI: http://localhost:13001
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py langfuse-web langfuse 13001:3000
+
 # --- HuggingFace → S3 ---
 
 check-hf-to-s3:
