@@ -65,7 +65,7 @@ spec:
               value: ap-northeast-1
           serviceAccount:
             annotations:
-              eks.amazonaws.com/role-arn: REPLACE_WITH_LANGFUSE_IRSA_ARN
+              eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-langfuse-role
         postgresql:
           enabled: false
         redis:
