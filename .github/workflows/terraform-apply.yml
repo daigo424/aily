@@ -252,6 +252,8 @@ jobs:
             -exec sed -i "s|REPLACE_WITH_LLM_MODEL|$LLM_MODEL|g" {} +
           LANGFUSE_ROLE_ARN=$(terraform -chdir="$TF" output -raw langfuse_role_arn)
           sed -i "s|REPLACE_WITH_LANGFUSE_IRSA_ARN|$LANGFUSE_ROLE_ARN|g" "$K8S/apps/${ENV}/langfuse-app.yaml"
+          LANGFUSE_NEXTAUTH_URL="${{ vars.LANGFUSE_NEXTAUTH_URL }}"
+          sed -i "s|REPLACE_WITH_LANGFUSE_NEXTAUTH_URL|$LANGFUSE_NEXTAUTH_URL|g" "$K8S/apps/${ENV}/langfuse-app.yaml"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
