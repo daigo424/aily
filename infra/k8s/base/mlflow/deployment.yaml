@@ -37,12 +37,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: aily-secret
-                  key: database-url
+                  key: DATABASE_URL
             - name: ARTIFACT_ROOT
               valueFrom:
                 secretKeyRef:
                   name: aily-secret
-                  key: artifact-root
+                  key: ARTIFACT_ROOT
           resources:
             requests:
               cpu: 100m
