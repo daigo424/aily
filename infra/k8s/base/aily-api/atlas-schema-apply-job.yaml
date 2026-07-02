@@ -13,6 +13,11 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       initContainers:
         - name: git-clone
           image: alpine/git:latest
