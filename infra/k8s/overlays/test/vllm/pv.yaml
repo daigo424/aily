@@ -14,7 +14,7 @@ spec:
     - region ap-northeast-1
   csi:
     driver: s3.csi.aws.com
-    volumeHandle: REPLACE_WITH_ML_DATA_BUCKET
+    volumeHandle: aily-test-ml-data
     volumeAttributes:
-      bucketName: REPLACE_WITH_ML_DATA_BUCKET
+      bucketName: aily-test-ml-data
       prefix: "models/"
