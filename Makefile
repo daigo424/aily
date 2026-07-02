@@ -141,3 +141,19 @@ argoworkflow-ui: check-aws-profile kubeconfig
 	@echo -----------------------------
 	@echo Port-forward starting... Ctrl+C to stop
 	python scripts/port_forward.py argo-workflows-server argo 12000:2746
+
+# --- HuggingFace → S3 ---
+
+check-hf-to-s3:
+ifndef HF_MODEL_ID
+	$(error HF_MODEL_ID が未設定です。.env に HF_MODEL_ID=<hf_repo_id> を追記してください (例: HF_MODEL_ID=Qwen/Qwen2.5-VL-7B-Instruct))
+endif
+ifndef ML_DATA_BUCKET
+	$(error ML_DATA_BUCKET が未設定です。.env に ML_DATA_BUCKET=<bucket_name> を追記してください)
+endif
+ifndef HF_TOKEN
+	@echo "警告: HF_TOKEN が未設定です。非公開/ゲート付きモデルはダウンロードできません"
+endif
+
+hf-to-s3: check-aws-profile check-hf-to-s3
+	python scripts/hf_to_s3.py

@@ -247,6 +247,8 @@ jobs:
           sed -i "s|REPLACE_WITH_VLLM_IRSA_ARN|$VLLM_ROLE_ARN|g" "$K8S/overlays/${ENV}/vllm/kustomization.yaml"
           find "$K8S/overlays/${ENV}/vllm" -name "pv.yaml" \
             -exec sed -i "s|REPLACE_WITH_ML_DATA_BUCKET|$BUCKET|g" {} +
+          find "$K8S/overlays/${ENV}/vllm" -name "kustomization.yaml" \
+            -exec sed -i "s|REPLACE_WITH_LLM_MODEL|$LLM_MODEL|g" {} +
           LANGFUSE_ROLE_ARN=$(terraform -chdir="$TF" output -raw langfuse_role_arn)
           sed -i "s|REPLACE_WITH_LANGFUSE_IRSA_ARN|$LANGFUSE_ROLE_ARN|g" "$K8S/apps/${ENV}/langfuse-app.yaml"
 
@@ -299,6 +301,7 @@ jobs:
           LANGFUSE_NEXTAUTH_SECRET: ${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}
           LANGFUSE_SALT: ${{ secrets.LANGFUSE_SALT }}
           LANGFUSE_NEXTAUTH_URL: ${{ vars.LANGFUSE_NEXTAUTH_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
         run: |
@@ -330,6 +333,7 @@ jobs:
             --from-literal=LANGFUSE_PUBLIC_KEY="${LANGFUSE_PUBLIC_KEY}" \
             --from-literal=LANGFUSE_SECRET_KEY="${LANGFUSE_SECRET_KEY}" \
             --from-literal=LANGFUSE_HOST="http://langfuse-web.langfuse.svc.cluster.local:3000" \
+            --from-literal=LLM_MODEL="${LLM_MODEL}" \
             --save-config \
             --dry-run=client -o yaml | kubectl apply -f -
 
