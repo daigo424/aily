@@ -403,7 +403,7 @@ jobs:
             --set configs.params."server\.insecure"=true \
             --set global.tolerations[0].key=workload \
             --set global.tolerations[0].operator=Equal \
-            --set global.tolerations[0].value=true \
+            --set-string global.tolerations[0].value=true \
             --set global.tolerations[0].effect=NoSchedule \
             --wait \
             --timeout 10m || {
