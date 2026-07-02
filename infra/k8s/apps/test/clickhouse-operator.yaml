@@ -11,6 +11,11 @@ spec:
     repoURL: https://github.com/Altinity/clickhouse-operator.git
     targetRevision: "release-0.27.1"
     path: deploy/helm/clickhouse-operator
+    helm:
+      values: |
+        operator:
+          watchNamespaces:
+            - "clickhouse"
   destination:
     server: https://kubernetes.default.svc
     namespace: clickhouse-operator
