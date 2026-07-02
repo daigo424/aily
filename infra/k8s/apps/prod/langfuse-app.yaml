@@ -14,27 +14,22 @@ spec:
     helm:
       valuesObject:
         langfuse:
+          salt:
+            secretKeyRef:
+              name: langfuse-secret
+              key: SALT
+          nextauth:
+            url: "REPLACE_WITH_LANGFUSE_NEXTAUTH_URL"
+            secret:
+              secretKeyRef:
+                name: langfuse-secret
+                key: NEXTAUTH_SECRET
           additionalEnv:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: langfuse-secret
                   key: DATABASE_URL
-            - name: NEXTAUTH_URL
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secret
-                  key: NEXTAUTH_URL
-            - name: NEXTAUTH_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secret
-                  key: NEXTAUTH_SECRET
-            - name: SALT
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secret
-                  key: SALT
             - name: REDIS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
