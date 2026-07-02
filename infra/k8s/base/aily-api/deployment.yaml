@@ -25,6 +25,8 @@ spec:
             - secretRef:
                 name: aily-secret
           env:
+            - name: PORT
+              value: "8000"
             - name: MLFLOW_TRACKING_URI
               value: http://mlflow.mlflow.svc.cluster.local:5000
             - name: REDIS_HOST
