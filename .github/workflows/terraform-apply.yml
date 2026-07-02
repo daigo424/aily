@@ -79,16 +79,16 @@ jobs:
             exit 0
           }
 
-          # Karpenter NodeClaim を先に削除してノードを解放
+          # PVC を先に削除して EBS CSI finalizer を処理させる
+          # (ノードを先に消すと EBS CSI コントローラーが死んで finalizer が解除されず無限待ちになる)
+          kubectl delete pvc --all --all-namespaces --ignore-not-found=true
+          if ! kubectl wait pvc --for=delete --all --all-namespaces --timeout=10m 2>/dev/null; then
+            echo "::warning::Some PVCs did not finish deleting within 10m. Orphan check will catch any leaked EBS volumes."
+          fi
+
+          # PVC 削除完了後に NodeClaim を削除してノードを解放
           kubectl delete nodeclaims --all --ignore-not-found=true
           kubectl wait --for=delete nodeclaims --all --timeout=5m || true
-
-          # PVC を削除して EBS CSI finalizer を起動させる
-          # (DeleteReclaim の EBS は finalizer 完了後に AWS 側も削除される)
-          kubectl delete pvc --all --all-namespaces --ignore-not-found=true
-          if ! kubectl wait pvc --for=delete --all --all-namespaces --timeout=5m 2>/dev/null; then
-            echo "::warning::Some PVCs did not finish deleting within 5m. Orphan check will catch any leaked EBS volumes."
-          fi
 
       - name: Terraform apply
         working-directory: ${{ env.TF_WORKING_DIR }}
