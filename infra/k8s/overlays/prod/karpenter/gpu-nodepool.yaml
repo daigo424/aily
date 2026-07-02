@@ -31,7 +31,8 @@ spec:
     memory: 16Gi
     nvidia.com/gpu: "2"
   disruption:
-    consolidationPolicy: WhenUnderutilized
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 10m
     budgets:
       - nodes: "1"
         schedule: "0 0 * * *"
