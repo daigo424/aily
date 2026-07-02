@@ -5,6 +5,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
+  amiFamily: AL2023
   amiSelectorTerms:
     - alias: al2023@latest
   role: aily-test-eks-node-role
