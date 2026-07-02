@@ -26,6 +26,7 @@ spec:
         - key: nvidia.com/gpu
           value: "present"
           effect: NoSchedule
+      expireAfter: 720h
   limits:
     cpu: "4"
     memory: 16Gi
@@ -40,4 +41,3 @@ spec:
       - nodes: "0"
         schedule: "0 0 * * *"
         duration: 12h
-    expireAfter: 720h
