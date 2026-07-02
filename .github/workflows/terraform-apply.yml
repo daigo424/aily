@@ -79,22 +79,20 @@ jobs:
             exit 0
           }
 
-          # PVC を先に削除して EBS CSI に AWS 側 volume の削除を依頼
-          kubectl delete pvc --all --all-namespaces --ignore-not-found=true
-
-          # pvc-protection finalizer は使用中 Pod がいると自動解除されない
-          # destroy 目的なので全 PVC の finalizer を強制除去
+          # PVC の finalizer を強制除去してから削除マークを付ける
+          # pvc-protection finalizer は使用中 Pod がいると自動解除されないため先に除去
           kubectl get pvc --all-namespaces -o json 2>/dev/null | \
             jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' | \
             while read -r ns name; do
               kubectl patch pvc "$name" -n "$ns" \
                 -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
             done
-
-          kubectl wait pvc --for=delete --all --all-namespaces --timeout=3m 2>/dev/null || true
+          # --wait=false で即リターン（finalizer 解除済みなので実際には速やかに消える）
+          kubectl delete pvc --all --all-namespaces --ignore-not-found=true --wait=false
+          kubectl wait pvc --for=delete --all --all-namespaces --timeout=2m 2>/dev/null || true
 
           # NodeClaim を削除してノードを解放
-          kubectl delete nodeclaims --all --ignore-not-found=true
+          kubectl delete nodeclaims --all --ignore-not-found=true --wait=false
           kubectl wait --for=delete nodeclaims --all --timeout=5m || true
 
       - name: Terraform apply
@@ -122,6 +120,11 @@ jobs:
           if [ -n "$ORPHANED_VOLUMES" ]; then
             echo "::error::Orphaned EBS volumes detected:"
             echo "$ORPHANED_VOLUMES"
+            echo "--- Run the following to delete them manually ---"
+            aws ec2 describe-volumes \
+              --filters "Name=tag:kubernetes.io/cluster/${CLUSTER_NAME},Values=owned" \
+              --query "Volumes[*].VolumeId" --output text | tr '\t' '\n' | \
+              while read -r vid; do echo "aws ec2 delete-volume --volume-id $vid --region ap-northeast-1"; done
             FAILED=true
           else
             echo "No orphaned EBS volumes."
@@ -137,6 +140,13 @@ jobs:
           if [ -n "$ORPHANED_EC2" ]; then
             echo "::error::Orphaned EC2 instances detected (Karpenter nodes not terminated):"
             echo "$ORPHANED_EC2"
+            echo "--- Run the following to delete them manually ---"
+            INSTANCE_IDS=$(aws ec2 describe-instances \
+              --filters \
+                "Name=tag:karpenter.sh/cluster-name,Values=${CLUSTER_NAME}" \
+                "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+              --query "Reservations[*].Instances[*].InstanceId" --output text | tr '\t' ' ')
+            echo "aws ec2 terminate-instances --instance-ids $INSTANCE_IDS --region ap-northeast-1"
             FAILED=true
           else
             echo "No orphaned EC2 instances."
@@ -150,37 +160,45 @@ jobs:
             TAGS=$(aws elbv2 describe-tags --resource-arns "$ARN" \
               --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
             if echo "$TAGS" | grep -q "kubernetes.io/cluster/${CLUSTER_NAME}"; then
-              ORPHANED_LBS="${ORPHANED_LBS}\n  ${ARN}"
+              ORPHANED_LBS="${ORPHANED_LBS} ${ARN}"
             fi
           done
           if [ -n "$ORPHANED_LBS" ]; then
             echo "::error::Orphaned Load Balancers detected:"
-            printf "%b\n" "$ORPHANED_LBS"
+            echo "$ORPHANED_LBS" | tr ' ' '\n' | grep -v '^$'
+            echo "--- Run the following to delete them manually ---"
+            echo "$ORPHANED_LBS" | tr ' ' '\n' | grep -v '^$' | \
+              while read -r arn; do echo "aws elbv2 delete-load-balancer --load-balancer-arn $arn --region ap-northeast-1"; done
             FAILED=true
           else
             echo "No orphaned Load Balancers."
           fi
 
           echo "=== Checking for orphaned Security Groups (AWS LBC) ==="
-          ORPHANED_SGS=$(aws ec2 describe-security-groups \
+          ORPHANED_SG_IDS=$(aws ec2 describe-security-groups \
             --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_NAME}" \
-            --query "SecurityGroups[*].{GroupId:GroupId,GroupName:GroupName}" \
-            --output table 2>/dev/null || echo "")
-          if [ -n "$ORPHANED_SGS" ]; then
+            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_SG_IDS" ]; then
             echo "::error::Orphaned Security Groups (LBC) detected:"
-            echo "$ORPHANED_SGS"
+            echo "$ORPHANED_SG_IDS" | tr '\t' '\n'
+            echo "--- Run the following to delete them manually ---"
+            echo "$ORPHANED_SG_IDS" | tr '\t' '\n' | \
+              while read -r sgid; do echo "aws ec2 delete-security-group --group-id $sgid --region ap-northeast-1"; done
             FAILED=true
           else
             echo "No orphaned Security Groups."
           fi
 
           echo "=== Checking for orphaned Target Groups ==="
-          ORPHANED_TGS=$(aws elbv2 describe-target-groups \
-            --query "TargetGroups[?contains(TargetGroupName, '${CLUSTER_NAME}') == \`true\`].{ARN:TargetGroupArn,Name:TargetGroupName}" \
-            --output table 2>/dev/null || echo "")
-          if [ -n "$ORPHANED_TGS" ]; then
+          ORPHANED_TG_ARNS=$(aws elbv2 describe-target-groups \
+            --query "TargetGroups[?contains(TargetGroupName, '${CLUSTER_NAME}') == \`true\`].TargetGroupArn" \
+            --output text 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_TG_ARNS" ]; then
             echo "::warning::Orphaned Target Groups detected (minor cost impact):"
-            echo "$ORPHANED_TGS"
+            echo "$ORPHANED_TG_ARNS" | tr '\t' '\n'
+            echo "--- Run the following to delete them manually ---"
+            echo "$ORPHANED_TG_ARNS" | tr '\t' '\n' | \
+              while read -r tgarn; do echo "aws elbv2 delete-target-group --target-group-arn $tgarn --region ap-northeast-1"; done
           else
             echo "No orphaned Target Groups."
           fi
