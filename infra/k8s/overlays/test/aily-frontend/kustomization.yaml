@@ -6,4 +6,4 @@ resources:
 images:
 - name: REPLACE_WITH_ECR_AILY_FRONTEND_URL
   newName: 815935788564.dkr.ecr.ap-northeast-1.amazonaws.com/aily-test/aily-frontend
-  newTag: 8811b8a30e7a2d3f183b54fae7d77598c1bbb497
+  newTag: 556a76dd3ab84abe4f985ec225a6772c615a1687
