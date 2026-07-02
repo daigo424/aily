@@ -61,23 +61,34 @@ jobs:
           terraform init -backend-config=backend.hcl \
             -backend-config="key=workloads/${{ vars.WORKLOAD_NAME }}/${{ github.event.inputs.environment }}/additional_github_repos/${{ github.repository }}/terraform.tfstate"
 
-      - name: Drain Karpenter nodes before destroy
+      - name: Drain resources before destroy
+        id: pre-destroy
         if: github.event.inputs.compute_enabled == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "")
           if [ -z "$CLUSTER_NAME" ]; then
-            echo "No EKS cluster in state, skipping NodeClaim cleanup"
+            echo "No EKS cluster in state, skipping cleanup"
+            echo "cluster_name=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
 
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1 || {
-            echo "Could not connect to EKS cluster, skipping NodeClaim cleanup"
+            echo "Could not connect to EKS cluster, skipping cleanup"
             exit 0
           }
 
+          # Karpenter NodeClaim を先に削除してノードを解放
           kubectl delete nodeclaims --all --ignore-not-found=true
           kubectl wait --for=delete nodeclaims --all --timeout=5m || true
+
+          # PVC を削除して EBS CSI finalizer を起動させる
+          # (DeleteReclaim の EBS は finalizer 完了後に AWS 側も削除される)
+          kubectl delete pvc --all --all-namespaces --ignore-not-found=true
+          if ! kubectl wait pvc --for=delete --all --all-namespaces --timeout=5m 2>/dev/null; then
+            echo "::warning::Some PVCs did not finish deleting within 5m. Orphan check will catch any leaked EBS volumes."
+          fi
 
       - name: Terraform apply
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -87,6 +98,91 @@ jobs:
           TF_VAR_docker_hub_username:     ${{ secrets.DOCKER_HUB_USERNAME }}
           TF_VAR_docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
         run: terraform apply -input=false -auto-approve
+
+      - name: Verify no orphaned AWS resources after destroy
+        if: github.event.inputs.compute_enabled == 'false' && steps.pre-destroy.outputs.cluster_name != ''
+        env:
+          CLUSTER_NAME: ${{ steps.pre-destroy.outputs.cluster_name }}
+        run: |
+          FAILED=false
+
+          echo "=== Checking for orphaned EBS volumes ==="
+          ORPHANED_VOLUMES=$(aws ec2 describe-volumes \
+            --filters \
+              "Name=tag:kubernetes.io/cluster/${CLUSTER_NAME},Values=owned" \
+            --query "Volumes[*].{VolumeId:VolumeId,State:State,Size:Size,PVC:Tags[?Key=='kubernetes.io/created-for/pvc/name']|[0].Value,Namespace:Tags[?Key=='kubernetes.io/created-for/pvc/namespace']|[0].Value}" \
+            --output table 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_VOLUMES" ]; then
+            echo "::error::Orphaned EBS volumes detected:"
+            echo "$ORPHANED_VOLUMES"
+            FAILED=true
+          else
+            echo "No orphaned EBS volumes."
+          fi
+
+          echo "=== Checking for orphaned EC2 instances (Karpenter nodes) ==="
+          ORPHANED_EC2=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:karpenter.sh/cluster-name,Values=${CLUSTER_NAME}" \
+              "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+            --query "Reservations[*].Instances[*].{InstanceId:InstanceId,State:State.Name,Type:InstanceType,NodePool:Tags[?Key=='karpenter.sh/nodepool']|[0].Value}" \
+            --output table 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_EC2" ]; then
+            echo "::error::Orphaned EC2 instances detected (Karpenter nodes not terminated):"
+            echo "$ORPHANED_EC2"
+            FAILED=true
+          else
+            echo "No orphaned EC2 instances."
+          fi
+
+          echo "=== Checking for orphaned Load Balancers ==="
+          ALL_LB_ARNS=$(aws elbv2 describe-load-balancers \
+            --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          ORPHANED_LBS=""
+          for ARN in $ALL_LB_ARNS; do
+            TAGS=$(aws elbv2 describe-tags --resource-arns "$ARN" \
+              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
+            if echo "$TAGS" | grep -q "kubernetes.io/cluster/${CLUSTER_NAME}"; then
+              ORPHANED_LBS="${ORPHANED_LBS}\n  ${ARN}"
+            fi
+          done
+          if [ -n "$ORPHANED_LBS" ]; then
+            echo "::error::Orphaned Load Balancers detected:"
+            printf "%b\n" "$ORPHANED_LBS"
+            FAILED=true
+          else
+            echo "No orphaned Load Balancers."
+          fi
+
+          echo "=== Checking for orphaned Security Groups (AWS LBC) ==="
+          ORPHANED_SGS=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_NAME}" \
+            --query "SecurityGroups[*].{GroupId:GroupId,GroupName:GroupName}" \
+            --output table 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_SGS" ]; then
+            echo "::error::Orphaned Security Groups (LBC) detected:"
+            echo "$ORPHANED_SGS"
+            FAILED=true
+          else
+            echo "No orphaned Security Groups."
+          fi
+
+          echo "=== Checking for orphaned Target Groups ==="
+          ORPHANED_TGS=$(aws elbv2 describe-target-groups \
+            --query "TargetGroups[?contains(TargetGroupName, '${CLUSTER_NAME}') == \`true\`].{ARN:TargetGroupArn,Name:TargetGroupName}" \
+            --output table 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_TGS" ]; then
+            echo "::warning::Orphaned Target Groups detected (minor cost impact):"
+            echo "$ORPHANED_TGS"
+          else
+            echo "No orphaned Target Groups."
+          fi
+
+          if [ "$FAILED" = "true" ]; then
+            echo "::error::Orphaned AWS resources remain after destroy. Manual cleanup required."
+            exit 1
+          fi
+          echo "All clear — no orphaned resources found."
 
       - name: Generate token
         id: app-token
@@ -143,6 +239,19 @@ jobs:
           sed -i "s|REPLACE_WITH_NODE_ROLE_NAME|$NODE_ROLE_NAME|g"     "$K8S/overlays/${ENV}/karpenter/ec2nodeclass.yaml"
           sed -i "s|REPLACE_WITH_AILY_API_IRSA_ARN|$AILY_API_ROLE_ARN|g" "$K8S/overlays/${ENV}/aily-api/kustomization.yaml"
           sed -i "s|REPLACE_WITH_MLFLOW_IRSA_ARN|$MLFLOW_ROLE_ARN|g"    "$K8S/overlays/${ENV}/mlflow/kustomization.yaml"
+          find "$K8S/overlays/${ENV}/karpenter" -name "gpu-ec2nodeclass.yaml" -o -name "clickhouse-ec2nodeclass.yaml" | \
+            xargs -I{} sed -i \
+              -e "s|REPLACE_WITH_NODE_ROLE_NAME|$NODE_ROLE_NAME|g" \
+              -e "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g" {}
+          VLLM_ROLE_ARN=$(terraform -chdir="$TF" output -raw vllm_role_arn)
+          sed -i "s|REPLACE_WITH_VLLM_IRSA_ARN|$VLLM_ROLE_ARN|g" "$K8S/overlays/${ENV}/vllm/kustomization.yaml"
+          find "$K8S/overlays/${ENV}/vllm" -name "pv.yaml" \
+            -exec sed -i "s|REPLACE_WITH_ML_DATA_BUCKET|$BUCKET|g" {} +
+          LLM_MODEL="${{ vars.LLM_MODEL }}"
+          find "$K8S/overlays/${ENV}/vllm" -name "kustomization.yaml" \
+            -exec sed -i "s|REPLACE_WITH_LLM_MODEL|$LLM_MODEL|g" {} +
+          LANGFUSE_ROLE_ARN=$(terraform -chdir="$TF" output -raw langfuse_role_arn)
+          sed -i "s|REPLACE_WITH_LANGFUSE_IRSA_ARN|$LANGFUSE_ROLE_ARN|g" "$K8S/apps/${ENV}/langfuse-app.yaml"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -189,6 +298,13 @@ jobs:
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           GH_BOT_PAT: ${{ secrets.GH_BOT_PAT }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+          LANGFUSE_NEXTAUTH_SECRET: ${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}
+          LANGFUSE_SALT: ${{ secrets.LANGFUSE_SALT }}
+          LANGFUSE_NEXTAUTH_URL: ${{ vars.LANGFUSE_NEXTAUTH_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
         run: |
           CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
@@ -215,6 +331,36 @@ jobs:
             --from-literal=CP_CONVERSATION_DB_NAME="cp_conversation" \
             --from-literal=DB_DEV_HOST="$DB_HOST" \
             --from-literal=APP_ATLAS_DEV_DB_NAME="app_test" \
+            --from-literal=LANGFUSE_PUBLIC_KEY="${LANGFUSE_PUBLIC_KEY}" \
+            --from-literal=LANGFUSE_SECRET_KEY="${LANGFUSE_SECRET_KEY}" \
+            --from-literal=LANGFUSE_HOST="http://langfuse-web.langfuse.svc.cluster.local:3000" \
+            --from-literal=LLM_MODEL="${LLM_MODEL}" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # ClickHouse password (used by ClickHouseInstallation CR and Langfuse)
+          kubectl create namespace clickhouse --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic clickhouse-secret \
+            --namespace clickhouse \
+            --from-literal=password="${CLICKHOUSE_PASSWORD}" \
+            --save-config \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Langfuse connection secrets
+          LANGFUSE_DB_URL="postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/langfuse?sslmode=require"
+          CLICKHOUSE_HTTP_URL="http://chi-langfuse-langfuse-0-0.clickhouse.svc.cluster.local:8123"
+
+          kubectl create namespace langfuse --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic langfuse-secret \
+            --namespace langfuse \
+            --from-literal=DATABASE_URL="${LANGFUSE_DB_URL}" \
+            --from-literal=NEXTAUTH_URL="${LANGFUSE_NEXTAUTH_URL:-http://localhost:13001}" \
+            --from-literal=NEXTAUTH_SECRET="${LANGFUSE_NEXTAUTH_SECRET}" \
+            --from-literal=SALT="${LANGFUSE_SALT}" \
+            --from-literal=REDIS_CONNECTION_STRING="redis://redis-master.redis.svc.cluster.local:6379" \
+            --from-literal=CLICKHOUSE_URL="${CLICKHOUSE_HTTP_URL}" \
+            --from-literal=CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}" \
+            --from-literal=S3_BUCKET="$(terraform output -raw ml_data_bucket_name)" \
             --save-config \
             --dry-run=client -o yaml | kubectl apply -f -
 

@@ -22,6 +22,22 @@ def _make_strict(schema: Any) -> Any:
     return schema
 
 
+def _init_tracing() -> None:
+    if not settings.langfuse_public_key or not settings.langfuse_host:
+        return
+    credentials = base64.b64encode(f"{settings.langfuse_public_key}:{settings.langfuse_secret_key}".encode()).decode()
+    from traceloop.sdk import Traceloop  # type: ignore[import-untyped]
+
+    Traceloop.init(
+        app_name="aily",
+        api_endpoint=f"{settings.langfuse_host}/api/public/otel",
+        headers={"Authorization": f"Basic {credentials}"},
+    )
+
+
+_init_tracing()
+
+
 class LLMClient(Interface):
     def __init__(self, api_key: str, model: str, base_url: str | None = None):
         self.client = OpenAI(api_key=api_key, **({"base_url": base_url} if base_url else {}))

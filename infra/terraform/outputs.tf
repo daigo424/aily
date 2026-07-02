@@ -87,3 +87,11 @@ output "weather_api_role_arn" {
 output "argo_workflows_server_role_arn" {
   value = try(module.iam_eks[0].argo_workflows_server_role_arn, null)
 }
+
+output "vllm_role_arn" {
+  value = try(module.iam_role_sa[0].vllm_role_arn, null)
+}
+
+output "langfuse_role_arn" {
+  value = try(module.iam_role_sa[0].langfuse_role_arn, null)
+}

@@ -31,6 +31,8 @@ spec:
               value: http://mlflow.mlflow.svc.cluster.local:5000
             - name: REDIS_HOST
               value: redis-master.redis.svc.cluster.local
+            - name: LLM_BASE_URL
+              value: http://vllm.aily-ml.svc.cluster.local:8000/v1
           resources:
             requests:
               cpu: 200m

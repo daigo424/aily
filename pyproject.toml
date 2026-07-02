@@ -4,6 +4,7 @@ version = "0.1.0"
 dependencies = [
     "fastapi==0.115.12",
     "google-genai>=1.55.0",
+    "traceloop-sdk>=0.33.0",
     "langgraph>=1.1.6",
     "langgraph-checkpoint-postgres>=2.0",
     "openai>=2.44.0",
@@ -54,9 +55,11 @@ warn_return_any = true
 
 [dependency-groups]
 dev = [
+    "boto3>=1.43.39",
     "debugpy==1.8.1",
     "fastapi==0.115.12",
     "google-genai>=1.55.0",
+    "huggingface-hub>=1.21.0",
     "mypy==1.18.2",
     "pgvector==0.4.1",
     "psycopg2-binary>=2.9.11",

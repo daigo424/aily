@@ -3,3 +3,7 @@ kind: Kustomization
 resources:
   - nodepool.yaml
   - ec2nodeclass.yaml
+  - gpu-nodepool.yaml
+  - gpu-ec2nodeclass.yaml
+  - clickhouse-nodepool.yaml
+  - clickhouse-ec2nodeclass.yaml
