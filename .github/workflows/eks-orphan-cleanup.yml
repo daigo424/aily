@@ -9,8 +9,8 @@ on:
         type: choice
         options: [test, prod]
       cluster_name:
-        description: "EKS cluster name（省略すると全クラスター対象）"
-        required: false
+        description: "EKS cluster name"
+        required: true
         type: string
 
 permissions:
@@ -42,38 +42,30 @@ jobs:
           FOUND=false
           CLUSTER_NAME="${{ github.event.inputs.cluster_name }}"
 
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "Error: cluster_name is required"
+            exit 1
+          fi
+
           echo ""
           echo "############################################################"
-          echo "  EKS Orphan Audit — env: ${{ github.event.inputs.environment }}${CLUSTER_NAME:+, cluster: $CLUSTER_NAME}"
+          echo "  EKS Orphan Audit — env: ${{ github.event.inputs.environment }}, cluster: $CLUSTER_NAME"
           echo "############################################################"
           echo ""
 
           NOT_TF="?!(Tags[?Key=='ManagedBy' && Value=='terraform'])"
           NOT_TF_RES="ResourceTagMappingList[?!(Tags[?Key=='ManagedBy' && Value=='terraform'])].ResourceARN"
 
-          if [ -n "$CLUSTER_NAME" ]; then
-            K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
-            KARPENTER_TAG_FILTER="Key=karpenter.sh/cluster-name,Values=$CLUSTER_NAME"
-            KARPENTER_INSTANCE_FILTER="Name=tag:karpenter.sh/cluster-name,Values=$CLUSTER_NAME"
-            LBC_SG_FILTER="Name=tag:elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
-            KARPENTER_SG_FILTER="Name=tag:karpenter.sh/discovery,Values=$CLUSTER_NAME"
-            ENI_FILTER="Name=tag:eks:eks-cluster-name,Values=$CLUSTER_NAME"
-            ENI_TAG_FILTER="Key=eks:eks-cluster-name,Values=$CLUSTER_NAME"
-            CLASSIC_K8S_CHECK=".Key == \"kubernetes.io/cluster/$CLUSTER_NAME\""
-            CW_EKS_PREFIX="/aws/eks/$CLUSTER_NAME"
-            CW_CI_PREFIX="/aws/containerinsights/$CLUSTER_NAME"
-          else
-            K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster"
-            KARPENTER_TAG_FILTER="Key=karpenter.sh/cluster-name"
-            KARPENTER_INSTANCE_FILTER="Name=tag-key,Values=karpenter.sh/cluster-name"
-            LBC_SG_FILTER="Name=tag-key,Values=elbv2.k8s.aws/cluster"
-            KARPENTER_SG_FILTER="Name=tag-key,Values=karpenter.sh/discovery"
-            ENI_FILTER="Name=tag-key,Values=eks:eks-cluster-name"
-            ENI_TAG_FILTER="Key=eks:eks-cluster-name"
-            CLASSIC_K8S_CHECK='(.Key | startswith("kubernetes.io/cluster/"))'
-            CW_EKS_PREFIX="/aws/eks/"
-            CW_CI_PREFIX="/aws/containerinsights/"
-          fi
+          K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
+          EKS_CLUSTER_NAME_TAG_FILTER="Key=eks:cluster-name,Values=$CLUSTER_NAME"
+          EKS_EKS_CLUSTER_NAME_TAG_FILTER="Key=eks:eks-cluster-name,Values=$CLUSTER_NAME"
+          KARPENTER_INSTANCE_FILTER="Name=tag:karpenter.sh/cluster-name,Values=$CLUSTER_NAME"
+          LBC_SG_FILTER="Name=tag:elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
+          KARPENTER_SG_FILTER="Name=tag:karpenter.sh/discovery,Values=$CLUSTER_NAME"
+          ENI_TAG_FILTER="Key=eks:eks-cluster-name,Values=$CLUSTER_NAME"
+          CLASSIC_K8S_CHECK=".Key == \"kubernetes.io/cluster/$CLUSTER_NAME\""
+          CW_EKS_PREFIX="/aws/eks/$CLUSTER_NAME"
+          CW_CI_PREFIX="/aws/containerinsights/$CLUSTER_NAME"
 
           # ----------------------------------------------------------------
           echo "=== [1] EBS Volumes (EBS CSI) ==="
@@ -303,7 +295,7 @@ jobs:
           ARNS=$(aws resourcegroupstaggingapi get-resources \
             --region "$REGION" \
             --resource-type-filters "ec2:instance" \
-            --tag-filters "$KARPENTER_TAG_FILTER" \
+            --tag-filters "$EKS_CLUSTER_NAME_TAG_FILTER" \
             --no-paginate \
             --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
@@ -323,7 +315,7 @@ jobs:
           ARNS=$(aws resourcegroupstaggingapi get-resources \
             --region "$REGION" \
             --resource-type-filters "ec2:fleet" \
-            --tag-filters "$KARPENTER_TAG_FILTER" \
+            --tag-filters "$EKS_EKS_CLUSTER_NAME_TAG_FILTER" \
             --no-paginate \
             --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
@@ -344,7 +336,7 @@ jobs:
           ARNS=$(aws resourcegroupstaggingapi get-resources \
             --region "$REGION" \
             --resource-type-filters "ec2:launch-template" \
-            --tag-filters "$KARPENTER_TAG_FILTER" \
+            --tag-filters "$EKS_EKS_CLUSTER_NAME_TAG_FILTER" \
             --no-paginate \
             --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
