@@ -33,7 +33,7 @@ spec:
             - vllm.entrypoints.openai.api_server
           args:
             - --model
-            - /models/$(LLM_MODEL)
+            - /models/models/$(LLM_MODEL)
             - --served-model-name
             - $(LLM_MODEL)
             - --host
