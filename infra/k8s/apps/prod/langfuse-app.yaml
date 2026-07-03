@@ -35,6 +35,17 @@ spec:
                 secretKeyRef:
                   name: langfuse-secret
                   key: REDIS_CONNECTION_STRING
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_ENABLED
+              value: "true"
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secret
+                  key: S3_BUCKET
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_PREFIX
+              value: langfuse/
+            - name: LANGFUSE_S3_MEDIA_UPLOAD_REGION
+              value: us-west-2
           serviceAccount:
             annotations:
               eks.amazonaws.com/role-arn: REPLACE_WITH_LANGFUSE_IRSA_ARN
@@ -44,20 +55,13 @@ spec:
           enabled: false
         clickhouse:
           enabled: false
-          host: REPLACE_WITH_CLICKHOUSE_HOST
+          host: clickhouse-langfuse.clickhouse.svc.cluster.local
           auth:
             username: langfuse
             existingSecret: langfuse-secret
             existingSecretKey: CLICKHOUSE_PASSWORD
         s3:
-          region: us-west-2
-          mediaUpload:
-            enabled: true
-            prefix: langfuse/
-            bucket:
-              secretKeyRef:
-                name: langfuse-secret
-                key: S3_BUCKET
+          enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: langfuse
