@@ -50,6 +50,7 @@ spec:
         clickhouse:
           enabled: false
           host: clickhouse-langfuse.clickhouse.svc.cluster.local
+          clusterName: langfuse
           auth:
             username: langfuse
             existingSecret: langfuse-secret
