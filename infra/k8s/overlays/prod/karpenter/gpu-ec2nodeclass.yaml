@@ -15,6 +15,12 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         karpenter.sh/discovery: REPLACE_WITH_CLUSTER_NAME
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100Gi
+        volumeType: gp3
+        deleteOnTermination: true
   tags:
     karpenter.sh/discovery: REPLACE_WITH_CLUSTER_NAME
     role: llm
