@@ -44,7 +44,7 @@ spec:
             - --tensor-parallel-size
             - "1"
             - --limit-mm-per-prompt
-            - image=4,video=0
+            - '{"image": 4, "video": 0}'
             - --max-model-len
             - "32768"
             - --gpu-memory-utilization
