@@ -43,7 +43,7 @@ jobs:
           echo "############################################################"
           echo ""
 
-          NOT_TF="?!Tags[?Key=='ManagedBy' && Value=='terraform']"
+          NOT_TF="?!(Tags[?Key=='ManagedBy' && Value=='terraform'])"
 
           # ----------------------------------------------------------------
           echo "=== [1] EBS Volumes (EBS CSI) ==="
@@ -84,7 +84,7 @@ jobs:
 
           # ----------------------------------------------------------------
           K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster"
-          NOT_TF_RES="ResourceTagMappingList[?!Tags[?Key=='ManagedBy' && Value=='terraform']].ResourceARN"
+          NOT_TF_RES="ResourceTagMappingList[?!(Tags[?Key=='ManagedBy' && Value=='terraform'])].ResourceARN"
 
           echo "=== [3] ALB / NLB — Load Balancers (AWS Load Balancer Controller) ==="
           LB_ARNS=$(aws resourcegroupstaggingapi get-resources \
