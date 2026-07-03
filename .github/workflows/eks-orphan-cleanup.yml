@@ -82,8 +82,7 @@ jobs:
           echo ""
 
           # ----------------------------------------------------------------
-          # kubernetes.io/cluster が固定キー・値がクラスター名のため exact match で検索可能
-          K8S_TAG_FILTER="Key=kubernetes.io/cluster"
+          K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster"
 
           echo "=== [3] ALB / NLB — Load Balancers (AWS Load Balancer Controller) ==="
           LB_ARNS=$(aws resourcegroupstaggingapi get-resources \
