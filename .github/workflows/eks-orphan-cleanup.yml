@@ -82,27 +82,58 @@ jobs:
           echo ""
 
           # ----------------------------------------------------------------
-          echo "=== [3] ALB / NLB (AWS Load Balancer Controller) ==="
-          ALL_LB_ARNS=$(aws elbv2 describe-load-balancers \
+          # kubernetes.io/cluster が固定キー・値がクラスター名のため exact match で検索可能
+          K8S_TAG_FILTER="Key=kubernetes.io/cluster"
+
+          echo "=== [3] ALB / NLB — Load Balancers (AWS Load Balancer Controller) ==="
+          LB_ARNS=$(aws resourcegroupstaggingapi get-resources \
             --region "$REGION" \
-            --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null \
+            --resource-type-filters "elasticloadbalancing:loadbalancer" \
+            --tag-filters "$K8S_TAG_FILTER" \
+            --no-paginate \
+            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
-          LB_ARNS=""
-          for ARN in $ALL_LB_ARNS; do
-            TAGS=$(aws elbv2 describe-tags --region "$REGION" --resource-arns "$ARN" \
-              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
-            # kubernetes.io/cluster/* という tag key があれば EKS 由来
-            if echo "$TAGS" | grep -q "kubernetes.io/cluster/"; then
-              LB_ARNS="${LB_ARNS} ${ARN}"
-            fi
-          done
           if [ -n "$LB_ARNS" ]; then
             FOUND=true
-            echo "$LB_ARNS" | tr ' ' '\n' | grep -v '^$'
-            echo "--- delete commands ---"
-            echo "$LB_ARNS" | tr ' ' '\n' | grep -v '^$' | while read -r arn; do
+            echo "$LB_ARNS"
+            echo "--- delete commands (listeners/rules are auto-deleted with LB) ---"
+            echo "$LB_ARNS" | while read -r arn; do
               echo "aws elbv2 delete-load-balancer --load-balancer-arn $arn --region $REGION"
             done
+          else
+            echo "(none)"
+          fi
+          echo ""
+
+          echo "=== [3a] ALB / NLB — Listeners ==="
+          LISTENER_ARNS=$(aws resourcegroupstaggingapi get-resources \
+            --region "$REGION" \
+            --resource-type-filters "elasticloadbalancing:listener" \
+            --tag-filters "$K8S_TAG_FILTER" \
+            --no-paginate \
+            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
+          if [ -n "$LISTENER_ARNS" ]; then
+            FOUND=true
+            echo "$LISTENER_ARNS"
+            echo "(deleted automatically when parent LB is deleted)"
+          else
+            echo "(none)"
+          fi
+          echo ""
+
+          echo "=== [3b] ALB / NLB — Listener Rules ==="
+          RULE_ARNS=$(aws resourcegroupstaggingapi get-resources \
+            --region "$REGION" \
+            --resource-type-filters "elasticloadbalancing:listener-rule" \
+            --tag-filters "$K8S_TAG_FILTER" \
+            --no-paginate \
+            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
+          if [ -n "$RULE_ARNS" ]; then
+            FOUND=true
+            echo "$RULE_ARNS"
+            echo "(deleted automatically when parent LB is deleted)"
           else
             echo "(none)"
           fi
@@ -136,23 +167,18 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [5] Target Groups (AWS LBC) ==="
-          ALL_TG_ARNS=$(aws elbv2 describe-target-groups \
+          TG_ARNS=$(aws resourcegroupstaggingapi get-resources \
             --region "$REGION" \
-            --query "TargetGroups[*].TargetGroupArn" --output text 2>/dev/null \
+            --resource-type-filters "elasticloadbalancing:targetgroup" \
+            --tag-filters "$K8S_TAG_FILTER" \
+            --no-paginate \
+            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
-          TG_ARNS=""
-          for ARN in $ALL_TG_ARNS; do
-            TAGS=$(aws elbv2 describe-tags --region "$REGION" --resource-arns "$ARN" \
-              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
-            if echo "$TAGS" | grep -q "kubernetes.io/cluster/\|elbv2.k8s.aws/"; then
-              TG_ARNS="${TG_ARNS} ${ARN}"
-            fi
-          done
           if [ -n "$TG_ARNS" ]; then
             FOUND=true
-            echo "$TG_ARNS" | tr ' ' '\n' | grep -v '^$'
+            echo "$TG_ARNS"
             echo "--- delete commands ---"
-            echo "$TG_ARNS" | tr ' ' '\n' | grep -v '^$' | while read -r arn; do
+            echo "$TG_ARNS" | while read -r arn; do
               echo "aws elbv2 delete-target-group --target-group-arn $arn --region $REGION"
             done
           else
