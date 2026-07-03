@@ -1,4 +1,4 @@
-name: destroy-tokyo
+name: destroy
 
 on:
   workflow_dispatch:
@@ -8,6 +8,11 @@ on:
         required: true
         type: choice
         options: [test]
+      aws_region:
+        description: "AWS region to destroy (e.g. ap-northeast-1, us-east-1)"
+        required: true
+        type: string
+        default: "ap-northeast-1"
 
 env:
   TF_WORKING_DIR: "infra/terraform"
@@ -42,7 +47,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/GitHubActionsWorkloadDeployRole
-          aws-region: ap-northeast-1
+          aws-region: ${{ github.event.inputs.aws_region }}
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -61,7 +66,7 @@ jobs:
             exit 0
           fi
 
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1 || {
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "${{ github.event.inputs.aws_region }}" || {
             echo "Could not connect to EKS cluster, skipping drain"
             exit 0
           }
@@ -80,7 +85,7 @@ jobs:
 
       - name: Cleanup K8s-created AWS resources
         run: |
-          REGION="ap-northeast-1"
+          REGION="${{ github.event.inputs.aws_region }}"
 
           # ELBv2 (ALB/NLB) — kubernetes タグ付き
           LB_ARNS=$(aws elbv2 describe-load-balancers --region "$REGION" \
@@ -122,7 +127,7 @@ jobs:
             aws ec2 delete-network-interface --network-interface-id "$ENI" --region "$REGION" || true
           done
 
-      - name: Terraform destroy (ap-northeast-1)
+      - name: Terraform destroy (${{ github.event.inputs.aws_region }})
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_environment:             ${{ github.event.inputs.environment }}
@@ -131,4 +136,4 @@ jobs:
           TF_VAR_docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
         run: |
           terraform destroy -input=false -auto-approve \
-            -var "aws_region=ap-northeast-1"
+            -var "aws_region=${{ github.event.inputs.aws_region }}"
