@@ -43,13 +43,14 @@ jobs:
           echo "############################################################"
           echo ""
 
+          NOT_TF="?!Tags[?Key=='ManagedBy' && Value=='terraform']"
+
           # ----------------------------------------------------------------
           echo "=== [1] EBS Volumes (EBS CSI) ==="
-          # tag-key で検索するためクラスター名不要
           IDS=$(aws ec2 describe-volumes \
             --region "$REGION" \
             --filters "Name=tag-key,Values=kubernetes.io/created-for/pvc/name" \
-            --query "Volumes[*].VolumeId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --query "Volumes[$NOT_TF].VolumeId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
             echo "$IDS"
@@ -69,7 +70,7 @@ jobs:
             --filters \
               "Name=tag-key,Values=karpenter.sh/cluster-name" \
               "Name=instance-state-name,Values=running,pending,stopping,stopped" \
-            --query "Reservations[*].Instances[*].InstanceId" --output text 2>/dev/null \
+            --query "Reservations[*].Instances[] | [$NOT_TF].InstanceId" --output text 2>/dev/null \
             | tr '\t' ' ' | xargs || true)
           if [ -n "$IDS" ]; then
             FOUND=true
@@ -83,6 +84,7 @@ jobs:
 
           # ----------------------------------------------------------------
           K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster"
+          NOT_TF_RES="ResourceTagMappingList[?!Tags[?Key=='ManagedBy' && Value=='terraform']].ResourceARN"
 
           echo "=== [3] ALB / NLB — Load Balancers (AWS Load Balancer Controller) ==="
           LB_ARNS=$(aws resourcegroupstaggingapi get-resources \
@@ -90,7 +92,7 @@ jobs:
             --resource-type-filters "elasticloadbalancing:loadbalancer" \
             --tag-filters "$K8S_TAG_FILTER" \
             --no-paginate \
-            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$LB_ARNS" ]; then
             FOUND=true
@@ -110,7 +112,7 @@ jobs:
             --resource-type-filters "elasticloadbalancing:listener" \
             --tag-filters "$K8S_TAG_FILTER" \
             --no-paginate \
-            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$LISTENER_ARNS" ]; then
             FOUND=true
@@ -127,7 +129,7 @@ jobs:
             --resource-type-filters "elasticloadbalancing:listener-rule" \
             --tag-filters "$K8S_TAG_FILTER" \
             --no-paginate \
-            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$RULE_ARNS" ]; then
             FOUND=true
@@ -147,8 +149,10 @@ jobs:
           CLASSIC_ORPHANS=""
           for NAME in $CLASSIC_NAMES; do
             TAGS=$(aws elb describe-tags --region "$REGION" --load-balancer-names "$NAME" \
-              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
-            if echo "$TAGS" | grep -q "kubernetes.io/cluster/"; then
+              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
+            IS_K8S=$(echo "$TAGS" | jq '[.[] | select(.Key | startswith("kubernetes.io/cluster/"))] | length' 2>/dev/null || echo "0")
+            IS_TF=$(echo "$TAGS" | jq '[.[] | select(.Key=="ManagedBy" and .Value=="terraform")] | length' 2>/dev/null || echo "0")
+            if [ "$IS_K8S" -gt 0 ] && [ "$IS_TF" = "0" ]; then
               CLASSIC_ORPHANS="${CLASSIC_ORPHANS} ${NAME}"
             fi
           done
@@ -171,7 +175,7 @@ jobs:
             --resource-type-filters "elasticloadbalancing:targetgroup" \
             --tag-filters "$K8S_TAG_FILTER" \
             --no-paginate \
-            --query "ResourceTagMappingList[*].ResourceARN" --output text 2>/dev/null \
+            --query "$NOT_TF_RES" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$TG_ARNS" ]; then
             FOUND=true
@@ -190,7 +194,7 @@ jobs:
           IDS=$(aws ec2 describe-security-groups \
             --region "$REGION" \
             --filters "Name=tag-key,Values=elbv2.k8s.aws/cluster" \
-            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null \
+            --query "SecurityGroups[$NOT_TF].GroupId" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
@@ -209,7 +213,7 @@ jobs:
           IDS=$(aws ec2 describe-security-groups \
             --region "$REGION" \
             --filters "Name=tag-key,Values=karpenter.sh/discovery" \
-            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null \
+            --query "SecurityGroups[$NOT_TF].GroupId" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
@@ -225,11 +229,10 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [8] ENIs (VPC CNI) ==="
-          # kubernetes.io/created-for/pod/namespace タグで検索
           IDS=$(aws ec2 describe-network-interfaces \
             --region "$REGION" \
             --filters "Name=tag-key,Values=kubernetes.io/created-for/pod/namespace" \
-            --query "NetworkInterfaces[*].NetworkInterfaceId" --output text 2>/dev/null \
+            --query "NetworkInterfaces[$NOT_TF].NetworkInterfaceId" --output text 2>/dev/null \
             | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
