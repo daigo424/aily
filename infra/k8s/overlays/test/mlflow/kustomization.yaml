@@ -17,4 +17,4 @@ patches:
 images:
 - name: REPLACE_WITH_ECR_MLFLOW_URL
   newName: 815935788564.dkr.ecr.us-west-2.amazonaws.com/aily-test/mlflow
-  newTag: 56c00e5d742ddc013dad6be4f3535934cabc7b55
+  newTag: 6b06d58929f02f568cf6e98de2f404117920dfd2
