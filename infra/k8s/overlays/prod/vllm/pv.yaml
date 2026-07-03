@@ -11,7 +11,7 @@ spec:
   storageClassName: ""
   mountOptions:
     - allow-delete
-    - region ap-northeast-1
+    - region us-west-2
   csi:
     driver: s3.csi.aws.com
     volumeHandle: REPLACE_WITH_ML_DATA_BUCKET

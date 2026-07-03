@@ -108,7 +108,7 @@ ifndef AWS_PROFILE
 endif
 
 kubeconfig: check-aws-profile
-	aws eks update-kubeconfig --name $(shell aws eks list-clusters --query 'clusters[0]' --output text) --region ap-northeast-1 --role-arn arn:aws:iam::$(shell aws sts get-caller-identity --query Account --output text):role/$(shell aws eks list-clusters --query 'clusters[0]' --output text)-eks-developer
+	aws eks update-kubeconfig --name $(shell aws eks list-clusters --query 'clusters[0]' --output text) --region us-west-2 --role-arn arn:aws:iam::$(shell aws sts get-caller-identity --query Account --output text):role/$(shell aws eks list-clusters --query 'clusters[0]' --output text)-eks-developer
 
 argocd-ui: check-aws-profile kubeconfig
 	@echo -----------------------------
