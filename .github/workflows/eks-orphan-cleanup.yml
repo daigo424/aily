@@ -8,13 +8,6 @@ on:
         required: true
         type: choice
         options: [test, prod]
-      cluster_name:
-        description: "EKS cluster name (leave blank to auto-detect from Terraform state)"
-        required: false
-        type: string
-
-env:
-  TF_WORKING_DIR: "infra/terraform"
 
 permissions:
   id-token: write
@@ -39,44 +32,23 @@ jobs:
           role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/GitHubActionsWorkloadDeployRole
           aws-region: ap-northeast-1
 
-      - uses: hashicorp/setup-terraform@v3
-
-      - name: Resolve cluster name
-        id: cluster
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          CLUSTER_NAME="${{ github.event.inputs.cluster_name }}"
-          if [ -z "$CLUSTER_NAME" ]; then
-            terraform init -backend-config=backend.hcl \
-              -backend-config="key=workloads/${{ vars.WORKLOAD_NAME }}/${{ github.event.inputs.environment }}/additional_github_repos/${{ github.repository }}/terraform.tfstate" \
-              -reconfigure 2>/dev/null
-            CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "")
-          fi
-          if [ -z "$CLUSTER_NAME" ]; then
-            echo "::error::Could not determine cluster name. Pass it explicitly via the cluster_name input."
-            exit 1
-          fi
-          echo "name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
-          echo "Cluster: $CLUSTER_NAME"
-
       - name: Audit orphaned AWS resources
-        env:
-          CLUSTER_NAME: ${{ steps.cluster.outputs.name }}
         run: |
           REGION="ap-northeast-1"
           FOUND=false
 
           echo ""
           echo "############################################################"
-          echo "  EKS Orphan Audit — cluster: ${CLUSTER_NAME}"
+          echo "  EKS Orphan Audit — env: ${{ github.event.inputs.environment }}"
           echo "############################################################"
           echo ""
 
           # ----------------------------------------------------------------
           echo "=== [1] EBS Volumes (EBS CSI) ==="
+          # tag-key で検索するためクラスター名不要
           IDS=$(aws ec2 describe-volumes \
             --region "$REGION" \
-            --filters "Name=tag:kubernetes.io/cluster/${CLUSTER_NAME},Values=owned" \
+            --filters "Name=tag-key,Values=kubernetes.io/created-for/pvc/name" \
             --query "Volumes[*].VolumeId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
@@ -95,9 +67,10 @@ jobs:
           IDS=$(aws ec2 describe-instances \
             --region "$REGION" \
             --filters \
-              "Name=tag:karpenter.sh/cluster-name,Values=${CLUSTER_NAME}" \
+              "Name=tag-key,Values=karpenter.sh/cluster-name" \
               "Name=instance-state-name,Values=running,pending,stopping,stopped" \
-            --query "Reservations[*].Instances[*].InstanceId" --output text 2>/dev/null | tr '\t' ' ' | xargs || true)
+            --query "Reservations[*].Instances[*].InstanceId" --output text 2>/dev/null \
+            | tr '\t' ' ' | xargs || true)
           if [ -n "$IDS" ]; then
             FOUND=true
             echo "$IDS" | tr ' ' '\n'
@@ -112,12 +85,14 @@ jobs:
           echo "=== [3] ALB / NLB (AWS Load Balancer Controller) ==="
           ALL_LB_ARNS=$(aws elbv2 describe-load-balancers \
             --region "$REGION" \
-            --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
           LB_ARNS=""
           for ARN in $ALL_LB_ARNS; do
             TAGS=$(aws elbv2 describe-tags --region "$REGION" --resource-arns "$ARN" \
-              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
-            if echo "$TAGS" | grep -q "kubernetes.io/cluster/${CLUSTER_NAME}"; then
+              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
+            # kubernetes.io/cluster/* という tag key があれば EKS 由来
+            if echo "$TAGS" | grep -q "kubernetes.io/cluster/"; then
               LB_ARNS="${LB_ARNS} ${ARN}"
             fi
           done
@@ -137,12 +112,13 @@ jobs:
           echo "=== [4] Classic ELBs (type:LoadBalancer v1) ==="
           CLASSIC_NAMES=$(aws elb describe-load-balancers \
             --region "$REGION" \
-            --query "LoadBalancerDescriptions[*].LoadBalancerName" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --query "LoadBalancerDescriptions[*].LoadBalancerName" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
           CLASSIC_ORPHANS=""
           for NAME in $CLASSIC_NAMES; do
             TAGS=$(aws elb describe-tags --region "$REGION" --load-balancer-names "$NAME" \
-              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
-            if echo "$TAGS" | grep -q "kubernetes.io/cluster/${CLUSTER_NAME}"; then
+              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
+            if echo "$TAGS" | grep -q "kubernetes.io/cluster/"; then
               CLASSIC_ORPHANS="${CLASSIC_ORPHANS} ${NAME}"
             fi
           done
@@ -160,15 +136,23 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [5] Target Groups (AWS LBC) ==="
-          IDS=$(aws elbv2 describe-target-groups \
+          ALL_TG_ARNS=$(aws elbv2 describe-target-groups \
             --region "$REGION" \
-            --query "TargetGroups[?contains(TargetGroupName, '${CLUSTER_NAME}') == \`true\`].TargetGroupArn" \
-            --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
-          if [ -n "$IDS" ]; then
+            --query "TargetGroups[*].TargetGroupArn" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
+          TG_ARNS=""
+          for ARN in $ALL_TG_ARNS; do
+            TAGS=$(aws elbv2 describe-tags --region "$REGION" --resource-arns "$ARN" \
+              --query "TagDescriptions[0].Tags[*].Key" --output text 2>/dev/null || echo "")
+            if echo "$TAGS" | grep -q "kubernetes.io/cluster/\|elbv2.k8s.aws/"; then
+              TG_ARNS="${TG_ARNS} ${ARN}"
+            fi
+          done
+          if [ -n "$TG_ARNS" ]; then
             FOUND=true
-            echo "$IDS"
+            echo "$TG_ARNS" | tr ' ' '\n' | grep -v '^$'
             echo "--- delete commands ---"
-            echo "$IDS" | while read -r arn; do
+            echo "$TG_ARNS" | tr ' ' '\n' | grep -v '^$' | while read -r arn; do
               echo "aws elbv2 delete-target-group --target-group-arn $arn --region $REGION"
             done
           else
@@ -177,11 +161,12 @@ jobs:
           echo ""
 
           # ----------------------------------------------------------------
-          echo "=== [6] Security Groups — AWS LBC (elbv2.k8s.aws/cluster) ==="
+          echo "=== [6] Security Groups — AWS LBC ==="
           IDS=$(aws ec2 describe-security-groups \
             --region "$REGION" \
-            --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_NAME}" \
-            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --filters "Name=tag-key,Values=elbv2.k8s.aws/cluster" \
+            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
             echo "$IDS"
@@ -195,11 +180,12 @@ jobs:
           echo ""
 
           # ----------------------------------------------------------------
-          echo "=== [7] Security Groups — Karpenter (karpenter.sh/discovery) ==="
+          echo "=== [7] Security Groups — Karpenter ==="
           IDS=$(aws ec2 describe-security-groups \
             --region "$REGION" \
-            --filters "Name=tag:karpenter.sh/discovery,Values=${CLUSTER_NAME}" \
-            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --filters "Name=tag-key,Values=karpenter.sh/discovery" \
+            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
             echo "$IDS"
@@ -214,10 +200,12 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [8] ENIs (VPC CNI) ==="
+          # kubernetes.io/created-for/pod/namespace タグで検索
           IDS=$(aws ec2 describe-network-interfaces \
             --region "$REGION" \
-            --filters "Name=tag:kubernetes.io/cluster/${CLUSTER_NAME},Values=owned" \
-            --query "NetworkInterfaces[*].NetworkInterfaceId" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+            --filters "Name=tag-key,Values=kubernetes.io/created-for/pod/namespace" \
+            --query "NetworkInterfaces[*].NetworkInterfaceId" --output text 2>/dev/null \
+            | tr '\t' '\n' | grep -v '^$' || true)
           if [ -n "$IDS" ]; then
             FOUND=true
             echo "$IDS"
@@ -232,20 +220,20 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [9] CloudWatch Log Groups ==="
-          LOG_GROUPS=$(aws logs describe-log-groups \
-            --region "$REGION" \
-            --log-group-name-prefix "/aws/eks/${CLUSTER_NAME}" \
-            --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
-          CW_EXTRA=$(aws logs describe-log-groups \
-            --region "$REGION" \
-            --log-group-name-prefix "/aws/containerinsights/${CLUSTER_NAME}" \
-            --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
-          ALL_LGS=$(printf "%s\n%s" "$LOG_GROUPS" "$CW_EXTRA" | grep -v '^$' || true)
-          if [ -n "$ALL_LGS" ]; then
+          LGS=$(
+            aws logs describe-log-groups --region "$REGION" \
+              --log-group-name-prefix "/aws/eks/" \
+              --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n'
+            aws logs describe-log-groups --region "$REGION" \
+              --log-group-name-prefix "/aws/containerinsights/" \
+              --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n'
+          )
+          LGS=$(echo "$LGS" | grep -v '^$' || true)
+          if [ -n "$LGS" ]; then
             FOUND=true
-            echo "$ALL_LGS"
+            echo "$LGS"
             echo "--- delete commands ---"
-            echo "$ALL_LGS" | while read -r lg; do
+            echo "$LGS" | while read -r lg; do
               echo "aws logs delete-log-group --log-group-name \"$lg\" --region $REGION"
             done
           else
