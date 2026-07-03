@@ -16,6 +16,11 @@ spec:
         app: aily-api
     spec:
       serviceAccountName: aily-api
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       containers:
         - name: api
           image: REPLACE_WITH_ECR_AILY_API_URL
