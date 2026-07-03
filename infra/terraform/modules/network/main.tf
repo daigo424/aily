@@ -1,9 +1,15 @@
-data "aws_vpc" "main" {
-  cidr_block = var.vpc_cidr
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "${var.name_prefix}-vpc"
+  }
 }
 
 resource "aws_internet_gateway" "main" {
-  vpc_id = data.aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "${var.name_prefix}-igw"
@@ -13,8 +19,8 @@ resource "aws_internet_gateway" "main" {
 resource "aws_subnet" "public" {
   count = length(var.azs)
 
-  vpc_id                  = data.aws_vpc.main.id
-  cidr_block              = cidrsubnet(data.aws_vpc.main.cidr_block, 4, count.index)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 4, count.index)
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = true
 
@@ -28,8 +34,8 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   count = length(var.azs)
 
-  vpc_id            = data.aws_vpc.main.id
-  cidr_block        = cidrsubnet(data.aws_vpc.main.cidr_block, 4, count.index + 10)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 4, count.index + 10)
   availability_zone = var.azs[count.index]
 
   tags = {
@@ -73,7 +79,7 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = data.aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -93,7 +99,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = data.aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
   dynamic "route" {
     for_each = var.create_nat ? [1] : []
@@ -118,7 +124,7 @@ resource "aws_route_table_association" "private" {
 data "aws_region" "current" {}
 
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = data.aws_vpc.main.id
+  vpc_id            = aws_vpc.main.id
   service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = [aws_route_table.private.id]
@@ -130,13 +136,13 @@ resource "aws_vpc_endpoint" "s3" {
 
 resource "aws_security_group" "ecr_endpoint" {
   name   = "${var.name_prefix}-ecr-endpoint-sg"
-  vpc_id = data.aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = [data.aws_vpc.main.cidr_block]
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   tags = {
@@ -145,7 +151,7 @@ resource "aws_security_group" "ecr_endpoint" {
 }
 
 resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = data.aws_vpc.main.id
+  vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.api"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id
@@ -158,7 +164,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
 }
 
 resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = data.aws_vpc.main.id
+  vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = aws_subnet.private[*].id

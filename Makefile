@@ -164,3 +164,8 @@ endif
 
 hf-to-s3: check-aws-profile check-hf-to-s3
 	python scripts/hf_to_s3.py
+
+# --- Coding ---
+
+terraform-fmt:
+	terraform fmt -recursive ./infra/terraform

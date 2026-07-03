@@ -33,7 +33,7 @@ output "eks_developer_role_arn" {
 }
 
 output "kubeconfig_command" {
-  value = try("aws eks update-kubeconfig --name ${module.eks[0].cluster_name} --region ap-northeast-1 --role-arn ${module.eks[0].developer_role_arn}", null)
+  value = try("aws eks update-kubeconfig --name ${module.eks[0].cluster_name} --region ${var.aws_region} --role-arn ${module.eks[0].developer_role_arn}", null)
 }
 
 # ECR
