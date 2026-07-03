@@ -67,6 +67,9 @@ spec:
           enabled: false
         clickhouse:
           enabled: false
+          auth:
+            existingSecret: langfuse-secret
+            existingSecretPasswordKey: CLICKHOUSE_PASSWORD
   destination:
     server: https://kubernetes.default.svc
     namespace: langfuse
