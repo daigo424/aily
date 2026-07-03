@@ -43,6 +43,12 @@ spec:
             - "8000"
             - --tensor-parallel-size
             - "1"
+            - --limit-mm-per-prompt
+            - image=4,video=0
+            - --max-model-len
+            - "32768"
+            - --gpu-memory-utilization
+            - "0.85"
           ports:
             - name: http
               containerPort: 8000
