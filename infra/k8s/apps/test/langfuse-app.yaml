@@ -57,7 +57,7 @@ spec:
             - name: LANGFUSE_S3_MEDIA_UPLOAD_PREFIX
               value: langfuse/
             - name: LANGFUSE_S3_MEDIA_UPLOAD_REGION
-              value: ap-northeast-1
+              value: us-west-2
           serviceAccount:
             annotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-langfuse-role

@@ -51,7 +51,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/GitHubActionsWorkloadDeployRole
-          aws-region: ap-northeast-1
+          aws-region: us-west-2
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -74,7 +74,7 @@ jobs:
           fi
           echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
 
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1 || {
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-west-2 || {
             echo "Could not connect to EKS cluster, skipping cleanup"
             exit 0
           }
@@ -206,7 +206,7 @@ jobs:
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
           CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-west-2
 
           kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
           kubectl create secret generic grafana-admin-secret \
@@ -231,7 +231,7 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
         run: |
           CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-west-2
 
           RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
           DB_HOST=$(echo "${RDS_ENDPOINT}" | cut -d: -f1)
@@ -302,7 +302,7 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment }}"
           CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-west-2
 
           kubectl wait --for=condition=Ready nodes --all --timeout=10m
 
