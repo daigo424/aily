@@ -78,6 +78,50 @@ jobs:
           kubectl delete nodeclaims --all --ignore-not-found=true --wait=false
           kubectl wait --for=delete nodeclaims --all --timeout=5m || true
 
+      - name: Cleanup K8s-created AWS resources
+        run: |
+          REGION="ap-northeast-1"
+
+          # ELBv2 (ALB/NLB) — kubernetes タグ付き
+          LB_ARNS=$(aws elbv2 describe-load-balancers --region "$REGION" \
+            --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+          for ARN in $LB_ARNS; do
+            TAGS=$(aws elbv2 describe-tags --resource-arns "$ARN" --region "$REGION" \
+              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
+            IS_K8S=$(echo "$TAGS" | jq '[.[] | select(.Key | startswith("kubernetes.io/") or startswith("elbv2.k8s.aws/"))] | length' 2>/dev/null || echo "0")
+            if [ "$IS_K8S" -gt 0 ]; then
+              echo "Deleting ELBv2: $ARN"
+              aws elbv2 delete-load-balancer --load-balancer-arn "$ARN" --region "$REGION" || true
+            fi
+          done
+
+          # Classic ELB — kubernetes タグ付き
+          CLASSIC_NAMES=$(aws elb describe-load-balancers --region "$REGION" \
+            --query "LoadBalancerDescriptions[*].LoadBalancerName" --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+          for NAME in $CLASSIC_NAMES; do
+            TAGS=$(aws elb describe-tags --region "$REGION" --load-balancer-names "$NAME" \
+              --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
+            IS_K8S=$(echo "$TAGS" | jq '[.[] | select(.Key | startswith("kubernetes.io/cluster/"))] | length' 2>/dev/null || echo "0")
+            if [ "$IS_K8S" -gt 0 ]; then
+              echo "Deleting Classic ELB: $NAME"
+              aws elb delete-load-balancer --load-balancer-name "$NAME" --region "$REGION" || true
+            fi
+          done
+
+          # LB 削除後 ENI が解放されるまで待機
+          echo "Waiting 30s for ENIs to detach..."
+          sleep 30
+
+          # 残存 ENI (kubernetes 関連) を強制削除
+          ENI_IDS=$(aws ec2 describe-network-interfaces --region "$REGION" \
+            --filters "Name=status,Values=available" \
+            --query "NetworkInterfaces[?contains(Description,'ELB') || contains(Description,'Amazon EKS') || contains(Description,'aws-K8S')].NetworkInterfaceId" \
+            --output text 2>/dev/null | tr '\t' '\n' | grep -v '^$' || true)
+          for ENI in $ENI_IDS; do
+            echo "Deleting ENI: $ENI"
+            aws ec2 delete-network-interface --network-interface-id "$ENI" --region "$REGION" || true
+          done
+
       - name: Terraform destroy (ap-northeast-1)
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
