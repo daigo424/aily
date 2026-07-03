@@ -12,7 +12,7 @@ module "network" {
   source      = "./modules/network"
   name_prefix = local.name_prefix
   vpc_cidr    = var.vpc_cidr
-  azs         = ["ap-northeast-1a", "ap-northeast-1c"]
+  azs         = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
   create_nat  = var.compute_enabled
 }
 
