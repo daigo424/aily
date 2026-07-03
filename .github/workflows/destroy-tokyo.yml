@@ -1,0 +1,90 @@
+name: destroy-tokyo
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (test only)"
+        required: true
+        type: choice
+        options: [test]
+
+env:
+  TF_WORKING_DIR: "infra/terraform"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block non-main branch
+        if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/bootstrap-vllm'
+        run: |
+          echo "destroy-tokyo is only allowed from main or feature branches"
+          exit 1
+
+  destroy:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve account ID
+        id: account
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            test) echo "id=${{ vars.TEST_AWS_ACCOUNT_ID }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/GitHubActionsWorkloadDeployRole
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init -backend-config=backend.hcl \
+            -backend-config="key=workloads/${{ vars.WORKLOAD_NAME }}/${{ github.event.inputs.environment }}/additional_github_repos/${{ github.repository }}/terraform.tfstate"
+
+      - name: Drain EKS resources
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          CLUSTER_NAME=$(terraform output -raw eks_cluster_name 2>/dev/null || echo "")
+          if [ -z "$CLUSTER_NAME" ]; then
+            echo "No EKS cluster in state, skipping drain"
+            exit 0
+          fi
+
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region ap-northeast-1 || {
+            echo "Could not connect to EKS cluster, skipping drain"
+            exit 0
+          }
+
+          kubectl get pvc --all-namespaces -o json 2>/dev/null | \
+            jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' | \
+            while read -r ns name; do
+              kubectl patch pvc "$name" -n "$ns" \
+                -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
+            done
+          kubectl delete pvc --all --all-namespaces --ignore-not-found=true --wait=false
+          kubectl wait pvc --for=delete --all --all-namespaces --timeout=2m 2>/dev/null || true
+
+          kubectl delete nodeclaims --all --ignore-not-found=true --wait=false
+          kubectl wait --for=delete nodeclaims --all --timeout=5m || true
+
+      - name: Terraform destroy (ap-northeast-1)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_environment:             ${{ github.event.inputs.environment }}
+          TF_VAR_compute_enabled:         "true"
+          TF_VAR_docker_hub_username:     ${{ secrets.DOCKER_HUB_USERNAME }}
+          TF_VAR_docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        run: |
+          terraform destroy -input=false -auto-approve \
+            -var "aws_region=ap-northeast-1"
