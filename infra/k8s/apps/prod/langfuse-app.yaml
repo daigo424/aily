@@ -35,18 +35,6 @@ spec:
                 secretKeyRef:
                   name: langfuse-secret
                   key: REDIS_CONNECTION_STRING
-            - name: CLICKHOUSE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secret
-                  key: CLICKHOUSE_URL
-            - name: CLICKHOUSE_USER
-              value: langfuse
-            - name: CLICKHOUSE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secret
-                  key: CLICKHOUSE_PASSWORD
             - name: LANGFUSE_S3_MEDIA_UPLOAD_ENABLED
               value: "true"
             - name: LANGFUSE_S3_MEDIA_UPLOAD_BUCKET
@@ -68,6 +56,7 @@ spec:
         clickhouse:
           enabled: false
           auth:
+            username: langfuse
             existingSecret: langfuse-secret
             existingSecretKey: CLICKHOUSE_PASSWORD
   destination:
