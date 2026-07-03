@@ -22,7 +22,7 @@ spec:
         - name: frontend
           image: REPLACE_WITH_ECR_AILY_FRONTEND_URL
           ports:
-            - containerPort: 8501
+            - containerPort: 8502
           env:
             - name: API_URL
               value: http://aily-api.aily.svc.cluster.local

@@ -149,6 +149,13 @@ langfuse-ui: check-aws-profile kubeconfig
 	@echo Port-forward starting... Ctrl+C to stop
 	python scripts/port_forward.py langfuse-web langfuse 13001:3000
 
+frontend-ui: check-aws-profile kubeconfig
+	@echo -----------------------------
+	@echo Frontend UI: http://localhost:8502
+	@echo -----------------------------
+	@echo Port-forward starting... Ctrl+C to stop
+	python scripts/port_forward.py aily-frontend aily 8502:80
+
 # --- HuggingFace → S3 ---
 
 check-hf-to-s3:
