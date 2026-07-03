@@ -35,6 +35,11 @@ spec:
                 secretKeyRef:
                   name: langfuse-secret
                   key: REDIS_CONNECTION_STRING
+          tolerations:
+            - key: workload
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
           serviceAccount:
             annotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-langfuse-role
