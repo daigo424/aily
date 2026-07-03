@@ -9,5 +9,5 @@ spec:
     app: aily-frontend
   ports:
     - port: 80
-      targetPort: 8501
+      targetPort: 8502
       protocol: TCP
