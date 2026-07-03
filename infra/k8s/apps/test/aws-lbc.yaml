@@ -16,7 +16,7 @@ spec:
         - name: clusterName
           value: aily-test
         - name: vpcId
-          value: vpc-0641a42774f958e70
+          value: vpc-0060b6ac3d4620645
         - name: serviceAccount.annotations.eks\.amazonaws\.com/role-arn
           value: arn:aws:iam::815935788564:role/aily-test-lbc-role
         - name: serviceAccount.create
