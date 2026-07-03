@@ -15,7 +15,7 @@ spec:
       valuesObject:
         global:
           storageClass: gp3
-          imageRegistry: REPLACE_WITH_AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/public.ecr.aws
+          imageRegistry: REPLACE_WITH_AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/docker.io
           security:
             allowInsecureImages: true
         architecture: standalone
