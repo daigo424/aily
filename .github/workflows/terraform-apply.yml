@@ -203,6 +203,36 @@ jobs:
             echo "No orphaned Target Groups."
           fi
 
+          echo "=== Checking for orphaned ENIs (VPC CNI) ==="
+          ORPHANED_ENI_IDS=$(aws ec2 describe-network-interfaces \
+            --filters "Name=tag:kubernetes.io/cluster/${CLUSTER_NAME},Values=owned" \
+            --query "NetworkInterfaces[*].NetworkInterfaceId" --output text 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_ENI_IDS" ]; then
+            echo "::error::Orphaned ENIs detected (may block VPC deletion):"
+            echo "$ORPHANED_ENI_IDS" | tr '\t' '\n'
+            echo "--- Run the following to delete them manually ---"
+            echo "$ORPHANED_ENI_IDS" | tr '\t' '\n' | \
+              while read -r eniid; do echo "aws ec2 delete-network-interface --network-interface-id $eniid --region ap-northeast-1"; done
+            FAILED=true
+          else
+            echo "No orphaned ENIs."
+          fi
+
+          echo "=== Checking for orphaned Security Groups (Karpenter) ==="
+          ORPHANED_KARP_SG_IDS=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:karpenter.sh/discovery,Values=${CLUSTER_NAME}" \
+            --query "SecurityGroups[*].GroupId" --output text 2>/dev/null || echo "")
+          if [ -n "$ORPHANED_KARP_SG_IDS" ]; then
+            echo "::error::Orphaned Security Groups (Karpenter) detected:"
+            echo "$ORPHANED_KARP_SG_IDS" | tr '\t' '\n'
+            echo "--- Run the following to delete them manually ---"
+            echo "$ORPHANED_KARP_SG_IDS" | tr '\t' '\n' | \
+              while read -r sgid; do echo "aws ec2 delete-security-group --group-id $sgid --region ap-northeast-1"; done
+            FAILED=true
+          else
+            echo "No orphaned Karpenter Security Groups."
+          fi
+
           if [ "$FAILED" = "true" ]; then
             echo "::error::Orphaned AWS resources remain after destroy. Manual cleanup required."
             exit 1
