@@ -16,18 +16,16 @@ patches:
       kind: ServiceAccount
       name: vllm
   - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
+      apiVersion: serving.kserve.io/v1beta1
+      kind: InferenceService
       metadata:
         name: vllm
       spec:
-        template:
-          spec:
-            containers:
-              - name: vllm
-                env:
-                  - name: LLM_MODEL
-                    value: REPLACE_WITH_LLM_MODEL
+        predictor:
+          model:
+            env:
+              - name: LLM_MODEL
+                value: REPLACE_WITH_LLM_MODEL
     target:
-      kind: Deployment
+      kind: InferenceService
       name: vllm

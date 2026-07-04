@@ -3,6 +3,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - serviceaccount.yaml
-  - deployment.yaml
-  - service.yaml
   - pvc.yaml
+  - serving-runtime.yaml
+  - inference-service.yaml
