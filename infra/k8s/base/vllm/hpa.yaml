@@ -3,6 +3,8 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: vllm
   namespace: aily-ml
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
