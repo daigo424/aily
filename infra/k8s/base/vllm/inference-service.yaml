@@ -5,6 +5,7 @@ metadata:
   namespace: aily-ml
   annotations:
     serving.kserve.io/deploymentMode: Standard
+    serving.kserve.io/autoscalerClass: external
     argocd.argoproj.io/sync-wave: "3"
 spec:
   predictor:
