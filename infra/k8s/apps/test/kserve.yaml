@@ -14,18 +14,20 @@ spec:
     helm:
       valuesObject:
         kserve:
-          modelmesh:
-            enabled: false
           controller:
             deploymentMode: Standard
+            tolerations:
+              - key: workload
+                operator: Equal
+                value: "true"
+                effect: NoSchedule
             resources:
               requests:
                 cpu: 100m
                 memory: 128Mi
               limits:
+                cpu: 100m
                 memory: 256Mi
-          localmodel:
-            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: kserve
