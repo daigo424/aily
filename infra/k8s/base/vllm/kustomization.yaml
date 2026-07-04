@@ -6,3 +6,4 @@ resources:
   - pvc.yaml
   - serving-runtime.yaml
   - inference-service.yaml
+  - hpa.yaml

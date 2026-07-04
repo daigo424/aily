@@ -9,7 +9,8 @@ spec:
       - aily-ml
   selector:
     matchLabels:
-      app: vllm
+      serving.kserve.io/inferenceservice: vllm
+      component: predictor
   endpoints:
     - port: http
       path: /metrics
