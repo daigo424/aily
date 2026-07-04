@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: aily-api
   namespace: aily
@@ -37,7 +37,7 @@ spec:
             - name: REDIS_HOST
               value: redis-master.redis.svc.cluster.local
             - name: LLM_BASE_URL
-              value: http://vllm.aily-ml.svc.cluster.local:8000/v1
+              value: http://vllm-predictor.aily-ml.svc.cluster.local/v1
           resources:
             requests:
               cpu: 200m
@@ -56,3 +56,8 @@ spec:
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 10
+  strategy:
+    blueGreen:
+      activeService: aily-api
+      previewService: aily-api-preview
+      autoPromotionEnabled: false
