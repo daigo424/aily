@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-adapter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus-adapter
+    targetRevision: "4.11.0"
+    helm:
+      valuesObject:
+        prometheus:
+          url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
+          port: 9090
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+
+        rules:
+          custom:
+            - seriesQuery: 'vllm:num_requests_waiting{namespace!="",pod!=""}'
+              resources:
+                overrides:
+                  namespace:
+                    resource: namespace
+                  pod:
+                    resource: pod
+              name:
+                matches: "^vllm:(.*)$"
+                as: "vllm_${1}"
+              metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[2m])'
+            - seriesQuery: 'vllm:gpu_cache_usage_factor{namespace!="",pod!=""}'
+              resources:
+                overrides:
+                  namespace:
+                    resource: namespace
+                  pod:
+                    resource: pod
+              name:
+                matches: "^vllm:(.*)$"
+                as: "vllm_${1}"
+              metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[2m])'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
