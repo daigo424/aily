@@ -4,20 +4,20 @@ metadata:
   name: kserve
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
   source:
-    repoURL: https://kserve.github.io/helm-charts/
-    chart: kserve
-    targetRevision: "0.14.0"
+    repoURL: ghcr.io/kserve/charts
+    chart: kserve-resources
+    targetRevision: "v0.18.0"
     helm:
       valuesObject:
         kserve:
           modelmesh:
             enabled: false
           controller:
-            deploymentMode: RawDeployment
+            deploymentMode: Standard
             resources:
               requests:
                 cpu: 100m
@@ -36,3 +36,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
