@@ -14,11 +14,6 @@ spec:
         app: mlflow
     spec:
       serviceAccountName: mlflow
-      tolerations:
-        - key: workload
-          operator: Equal
-          value: "true"
-          effect: NoSchedule
       containers:
         - name: mlflow
           image: REPLACE_WITH_ECR_MLFLOW_URL

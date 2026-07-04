@@ -25,10 +25,6 @@ spec:
         - key: karpenter.k8s.aws/instance-size
           operator: In
           values: ["large", "xlarge"]
-      taints:
-        - key: workload
-          value: "true"
-          effect: NoSchedule
   limits:
     cpu: "16"
     memory: 64Gi
