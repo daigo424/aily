@@ -1,0 +1,25 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: vllm
+  namespace: aily-ml
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  predictor:
+    serviceAccountName: vllm
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Equal
+        value: present
+        effect: NoSchedule
+    nodeSelector:
+      role: llm
+    model:
+      modelFormat:
+        name: vllm
+      storageUri: pvc://vllm-model-pvc
+      env:
+        - name: LLM_MODEL
+          value: REPLACE_WITH_LLM_MODEL
