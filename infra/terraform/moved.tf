@@ -93,8 +93,8 @@ moved {
 }
 
 moved {
-  from = module.eks[0].aws_iam_service_linked_role.spot
-  to   = module.karpenter[0].aws_iam_service_linked_role.spot
+  from = module.karpenter[0].aws_iam_service_linked_role.spot
+  to   = aws_iam_service_linked_role.spot
 }
 
 moved {

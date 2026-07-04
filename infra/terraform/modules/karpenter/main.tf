@@ -281,12 +281,6 @@ resource "aws_ec2_tag" "karpenter_cluster_sg" {
   value       = var.cluster_name
 }
 
-# -------------------------------------------------------
-# EC2 Spot Service Linked Role
-# -------------------------------------------------------
-resource "aws_iam_service_linked_role" "spot" {
-  aws_service_name = "spot.amazonaws.com"
-}
 
 # -------------------------------------------------------
 # SQS + EventBridge for Spot interruption handling
