@@ -16,11 +16,6 @@ spec:
         kserve:
           controller:
             deploymentMode: Standard
-            tolerations:
-              - key: workload
-                operator: Equal
-                value: "true"
-                effect: NoSchedule
             resources:
               requests:
                 cpu: 100m
