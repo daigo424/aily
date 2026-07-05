@@ -20,6 +20,8 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str
     session_id: str
+    image_base64: str | None = None
+    image_mime_type: str | None = None
 
 
 @router.post("/chat")
@@ -47,7 +49,7 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
             db.flush()
 
             initial_state = BookingState(
-                messages=[HumanMessage(content=body.message)],
+                messages=[HumanMessage(content=body.message, additional_kwargs={"created_at": datetime.now(timezone.utc).isoformat()})],
                 text_body=body.message,
                 sender=phone,
                 customer_id=customer.id,
@@ -59,6 +61,8 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
                 raw_llm_result={},
                 intent="",
                 reply="...",
+                image_base64=body.image_base64,
+                image_mime_type=body.image_mime_type,
             )
 
             booking_graph = request.app.state.booking_graph

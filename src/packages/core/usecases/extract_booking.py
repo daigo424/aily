@@ -23,7 +23,7 @@ def _format_history(messages: list[BaseMessage]) -> str:
     return "\n".join(lines)
 
 
-def execute(text: str, history: list[BaseMessage] | None = None) -> dict[str, Any]:
+def execute(text: str, history: list[BaseMessage] | None = None, image_base64: str | None = None, image_mime_type: str | None = None) -> dict[str, Any]:
     now_text = datetime.now(tz=TZ).strftime("%Y-%m-%d %H:%M")
     history_section = ""
     if history:
@@ -74,6 +74,8 @@ reply: ユーザーへの返答文。以下のルールで生成すること。
         prompt=prompt,
         schema=BookingExtraction.model_json_schema(),
         temperature=0.1,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
     )
     booking = BookingExtraction.model_validate(response)
 
