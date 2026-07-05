@@ -19,10 +19,19 @@ spec:
 
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
-          limits:
+            cpu: 100m
             memory: 256Mi
+          limits:
+            memory: 512Mi
+
+        livenessProbe:
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
 
         rules:
           custom:
