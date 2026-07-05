@@ -160,6 +160,7 @@ jobs:
           sed -i "s|REPLACE_WITH_CLUSTER_NAME|$CLUSTER_NAME|g"         "$K8S/overlays/${ENV}/karpenter/ec2nodeclass.yaml"
           sed -i "s|REPLACE_WITH_NODE_ROLE_NAME|$NODE_ROLE_NAME|g"     "$K8S/overlays/${ENV}/karpenter/ec2nodeclass.yaml"
           sed -i "s|REPLACE_WITH_AILY_API_IRSA_ARN|$AILY_API_ROLE_ARN|g" "$K8S/overlays/${ENV}/aily-api/kustomization.yaml"
+          sed -i "s|REPLACE_WITH_AWS_ACCOUNT_ID|$AWS_ACCOUNT_ID|g"    "$K8S/overlays/${ENV}/valkey/kustomization.yaml"
           sed -i "s|REPLACE_WITH_MLFLOW_IRSA_ARN|$MLFLOW_ROLE_ARN|g"    "$K8S/overlays/${ENV}/mlflow/kustomization.yaml"
           find "$K8S/overlays/${ENV}/karpenter" -name "gpu-ec2nodeclass.yaml" -o -name "clickhouse-ec2nodeclass.yaml" | \
             xargs -I{} sed -i \

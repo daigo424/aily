@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/daigo424/aily
-    path: infra/k8s/base/valkey
+    path: infra/k8s/overlays/test/valkey
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
