@@ -8,26 +8,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: registry-1.docker.io/bitnamicharts
-    chart: redis
-    targetRevision: "21.2.14"
-    helm:
-      valuesObject:
-        global:
-          storageClass: gp3
-          imageRegistry: REPLACE_WITH_AWS_ACCOUNT_ID.dkr.ecr.us-west-2.amazonaws.com/docker.io
-          security:
-            allowInsecureImages: true
-        architecture: standalone
-        auth:
-          enabled: false
-        master:
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              memory: 256Mi
+    repoURL: https://github.com/daigo424/aily
+    path: infra/k8s/base/valkey
+    targetRevision: main
   destination:
     server: https://kubernetes.default.svc
     namespace: redis

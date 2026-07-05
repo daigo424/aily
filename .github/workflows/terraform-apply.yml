@@ -281,7 +281,7 @@ jobs:
             --from-literal=NEXTAUTH_URL="${LANGFUSE_NEXTAUTH_URL:-http://localhost:13001}" \
             --from-literal=NEXTAUTH_SECRET="${LANGFUSE_NEXTAUTH_SECRET}" \
             --from-literal=SALT="${LANGFUSE_SALT}" \
-            --from-literal=REDIS_CONNECTION_STRING="redis://redis-master.redis.svc.cluster.local:6379" \
+            --from-literal=REDIS_CONNECTION_STRING="redis://redis-primary.redis.svc.cluster.local:6379" \
             --from-literal=CLICKHOUSE_URL="${CLICKHOUSE_HTTP_URL}" \
             --from-literal=CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD}" \
             --from-literal=S3_BUCKET="$(terraform output -raw ml_data_bucket_name)" \
