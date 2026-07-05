@@ -53,8 +53,10 @@ jobs:
           echo "############################################################"
           echo ""
 
-          NOT_TF="?!(Tags[?Key=='ManagedBy' && Value=='terraform'])"
-          NOT_TF_RES="ResourceTagMappingList[?!(Tags[?Key=='ManagedBy' && Value=='terraform'])].ResourceARN"
+          NOT_TF="?!(Tags[?Key=='ManagedBy' && Value=='terraform'])"                          # JMESPath — ec2 / resourcegroupstagging
+          NOT_TF_RES="ResourceTagMappingList[?!(Tags[?Key=='ManagedBy' && Value=='terraform'])].ResourceARN"  # JMESPath — resourcegroupstagging
+          NOT_TF_JQ='[.[] | select(.Key=="ManagedBy" and .Value=="terraform")] | length'  # jq     — classic ELB [4]
+          TF_TAG_VALUE="terraform"                                                          # 文字列 — CW Logs [9]
 
           K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
           EKS_CLUSTER_NAME_TAG_FILTER="Key=eks:cluster-name,Values=$CLUSTER_NAME"
@@ -170,7 +172,7 @@ jobs:
             TAGS=$(aws elb describe-tags --region "$REGION" --load-balancer-names "$NAME" \
               --query "TagDescriptions[0].Tags" --output json 2>/dev/null || echo "[]")
             IS_K8S=$(echo "$TAGS" | jq "[.[] | select($CLASSIC_K8S_CHECK)] | length" 2>/dev/null || echo "0")
-            IS_TF=$(echo "$TAGS" | jq '[.[] | select(.Key=="ManagedBy" and .Value=="terraform")] | length' 2>/dev/null || echo "0")
+            IS_TF=$(echo "$TAGS" | jq "$NOT_TF_JQ" 2>/dev/null || echo "0")
             if [ "$IS_K8S" -gt 0 ] && [ "$IS_TF" = "0" ]; then
               CLASSIC_ORPHANS="${CLASSIC_ORPHANS} ${NAME}"
             fi
@@ -269,7 +271,7 @@ jobs:
 
           # ----------------------------------------------------------------
           echo "=== [9] CloudWatch Log Groups ==="
-          LGS=$(
+          ALL_LGS=$(
             aws logs describe-log-groups --region "$REGION" \
               --log-group-name-prefix "$CW_EKS_PREFIX" \
               --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n'
@@ -277,6 +279,15 @@ jobs:
               --log-group-name-prefix "$CW_CI_PREFIX" \
               --query "logGroups[*].logGroupName" --output text 2>/dev/null | tr '\t' '\n'
           )
+          ALL_LGS=$(echo "$ALL_LGS" | grep -v '^$' || true)
+          LGS=""
+          for LG in $ALL_LGS; do
+            MANAGED_BY=$(aws logs list-tags-log-group --region "$REGION" --log-group-name "$LG" \
+              --query "tags.ManagedBy" --output text 2>/dev/null || echo "")
+            if [ "$MANAGED_BY" != "$TF_TAG_VALUE" ]; then
+              LGS="${LGS}${LG}"$'\n'
+            fi
+          done
           LGS=$(echo "$LGS" | grep -v '^$' || true)
           if [ -n "$LGS" ]; then
             FOUND=true
