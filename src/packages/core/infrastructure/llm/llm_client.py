@@ -32,6 +32,7 @@ def _init_tracing() -> None:
         app_name="aily",
         api_endpoint=f"{settings.langfuse_host}/api/public/otel",
         headers={"Authorization": f"Basic {credentials}"},
+        suppress_content_tracing=True,
     )
 
 
@@ -46,7 +47,14 @@ class LLMClient(Interface):
     def _is_ollama(self) -> bool:
         return "ollama" in str(self.client.base_url).lower()
 
-    def gen_json(self, prompt: str, schema: dict[str, Any], temperature: float = 0.1) -> Any:
+    def gen_json(
+        self,
+        prompt: str,
+        schema: dict[str, Any],
+        temperature: float = 0.1,
+        image_base64: str | None = None,
+        image_mime_type: str | None = None,
+    ) -> Any:
         strict_schema = _make_strict(json.loads(json.dumps(schema)))
         if self._is_ollama():
             response_format = {"type": "json_schema", "json_schema": {"schema": strict_schema}}
@@ -56,9 +64,18 @@ class LLMClient(Interface):
                 "json_schema": {"name": "response", "schema": strict_schema, "strict": True},
             }
 
+        if image_base64:
+            data_url = f"data:{image_mime_type or 'image/jpeg'};base64,{image_base64}"
+            content: str | list = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_url}},
+            ]
+        else:
+            content = prompt
+
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content}],
             temperature=temperature,
             response_format=response_format,
         )
