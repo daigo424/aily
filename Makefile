@@ -172,7 +172,32 @@ endif
 hf-to-s3: check-aws-profile check-hf-to-s3
 	python scripts/hf_to_s3.py
 
-# --- Coding ---
+# --- Terraform ---
 
 terraform-fmt:
 	terraform fmt -recursive ./infra/terraform
+
+# --- Helm ---
+
+HELM_VALUES_URL ?=
+HELM_APP_YAML   ?=
+HELM_SUBCHARTS  ?=
+
+# HELM_VALUES_URL : 参照する公式 chart の values.yaml（URL またはローカルパス）
+# HELM_APP_YAML   : 検証対象の ArgoCD Application YAML（URL またはローカルパス）
+# HELM_SUBCHARTS  : サブチャートの --subchart 引数をまとめて渡す（スペース区切り）
+#
+# 使用例:
+#   make check-helm-values \
+#     HELM_VALUES_URL=https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-87.7.0/charts/kube-prometheus-stack/values.yaml \
+#     HELM_APP_YAML=infra/k8s/apps/test/kube-prometheus-stack.yaml \
+#     HELM_SUBCHARTS='--subchart grafana=https://raw.githubusercontent.com/grafana-community/helm-charts/main/charts/grafana/values.yaml --subchart kube-state-metrics=https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-state-metrics-7.5.1/charts/kube-state-metrics/values.yaml --subchart prometheus-node-exporter=https://raw.githubusercontent.com/prometheus-community/helm-charts/prometheus-node-exporter-4.55.0/charts/prometheus-node-exporter/values.yaml'
+
+helm-check-values:
+ifndef HELM_VALUES_URL
+	$(error HELM_VALUES_URL が未設定です。make check-helm-values HELM_VALUES_URL=<url_or_path> HELM_APP_YAML=<path>)
+endif
+ifndef HELM_APP_YAML
+	$(error HELM_APP_YAML が未設定です。make check-helm-values HELM_VALUES_URL=<url_or_path> HELM_APP_YAML=<path>)
+endif
+	python scripts/helm_check_values.py "$(HELM_VALUES_URL)" $(HELM_APP_YAML) $(HELM_SUBCHARTS)
