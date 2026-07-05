@@ -30,7 +30,7 @@ spec:
             - name: MLFLOW_TRACKING_URI
               value: http://mlflow.mlflow.svc.cluster.local:5000
             - name: REDIS_HOST
-              value: redis-master.redis.svc.cluster.local
+              value: redis-primary.redis.svc.cluster.local
             - name: LLM_BASE_URL
               value: http://vllm-predictor.aily-ml.svc.cluster.local/v1
           resources:
