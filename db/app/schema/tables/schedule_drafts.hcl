@@ -1,4 +1,4 @@
-table "booking_requests" {
+table "schedule_drafts" {
   schema = schema.public
 
   column "id" {
@@ -9,20 +9,9 @@ table "booking_requests" {
     }
   }
 
-  column "conversation_id" {
+  column "chat_id" {
     null = false
     type = integer
-  }
-
-  column "customer_id" {
-    null = false
-    type = integer
-  }
-
-  column "status" {
-    null    = false
-    type    = varchar(32)
-    default = "collecting"
   }
 
   column "source_message_id" {
@@ -30,12 +19,27 @@ table "booking_requests" {
     type = integer
   }
 
-  column "requested_date" {
+  column "item_type" {
+    null = true
+    type = varchar(16)
+  }
+
+  column "title" {
+    null = true
+    type = varchar(255)
+  }
+
+  column "scheduled_date" {
     null = true
     type = date
   }
 
-  column "requested_time" {
+  column "start_time" {
+    null = true
+    type = varchar(16)
+  }
+
+  column "end_time" {
     null = true
     type = varchar(16)
   }
@@ -43,6 +47,12 @@ table "booking_requests" {
   column "notes" {
     null = true
     type = text
+  }
+
+  column "status" {
+    null    = false
+    type    = varchar(32)
+    default = "collecting"
   }
 
   column "extracted_entities" {
@@ -67,11 +77,7 @@ table "booking_requests" {
     columns = [column.id]
   }
 
-  index "ix_booking_requests_customer_id" {
-    columns = [column.customer_id]
-  }
-
-  index "ix_booking_requests_conversation_id" {
-    columns = [column.conversation_id]
+  index "ix_schedule_drafts_chat_id" {
+    columns = [column.chat_id]
   }
 }

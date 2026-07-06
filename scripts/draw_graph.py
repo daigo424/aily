@@ -9,7 +9,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from packages.core.graph.graph import build_graph
 
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "doc", "graph.png")
+OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "docs", "graph.png")
 
 
 def main() -> None:

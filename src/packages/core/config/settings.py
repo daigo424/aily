@@ -6,10 +6,6 @@ class Settings(BaseSettings):
 
     app_env: str = "local"
     app_base_url: str = "http://localhost:8000"
-    verify_token: str = ""
-    whatsapp_token: str = ""
-    whatsapp_phone_number_id: str = ""
-    whatsapp_graph_api_version: str = "v24.0"
     llm_provider: str = "vllm"
     llm_base_url: str = ""
     llm_api_key: str = "dummy"
@@ -22,16 +18,20 @@ class Settings(BaseSettings):
     db_password: str
     db_port: str
     app_db_name: str
-    cp_conversation_db_name: str
+    checkpointer_db_name: str
     timezone: str = "Asia/Tokyo"
+    attachment_local_dir: str = "/app/data/app/message_attachments"
+    ml_data_bucket: str = ""
+    attachment_s3_prefix: str = "ml_data/app/message_attachments"
+    cloudfront_url: str = ""
 
     @property
     def app_database_url(self) -> str:
         return f"postgresql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.app_db_name}"
 
     @property
-    def cp_conversation_database_url(self) -> str:
-        return f"postgresql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.cp_conversation_db_name}"
+    def checkpointer_database_url(self) -> str:
+        return f"postgresql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.checkpointer_db_name}"
 
 
 settings = Settings()  # type: ignore[call-arg]

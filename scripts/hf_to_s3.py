@@ -17,7 +17,7 @@ from huggingface_hub import snapshot_download
 from tqdm import tqdm
 
 # 環境変数から読み込む（Makefile / .env 経由で上書き可能）
-# HF_MODEL_ID: HuggingFace repo ID (例: Qwen/Qwen2.5-VL-7B-Instruct)
+# HF_MODEL_ID: HuggingFace repo ID (例: meta-llama/Llama-3.2-11B-Vision-Instruct)
 # ※ LLM_MODEL (GitHub Variable) にも同じ値を設定すること
 HF_MODEL_ID = os.environ.get("HF_MODEL_ID", "").strip()
 BUCKET_NAME = os.environ.get("ML_DATA_BUCKET", "").strip()
@@ -91,7 +91,7 @@ def download_and_upload_to_s3(model_id: str, bucket_name: str, s3_prefix: str) -
 
 if __name__ == "__main__":
     if not HF_MODEL_ID:
-        raise SystemExit("エラー: HF_MODEL_ID が未設定です (例: HF_MODEL_ID=Qwen/Qwen2.5-VL-7B-Instruct)")
+        raise SystemExit("エラー: HF_MODEL_ID が未設定です (例: HF_MODEL_ID=meta-llama/Llama-3.2-11B-Vision-Instruct)")
     if not BUCKET_NAME:
         raise SystemExit("エラー: ML_DATA_BUCKET が未設定です")
     download_and_upload_to_s3(HF_MODEL_ID, BUCKET_NAME, S3_PREFIX)

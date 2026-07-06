@@ -21,3 +21,8 @@ output "athena_workgroup_name" {
 output "glue_database_name" {
   value = aws_glue_catalog_database.logs.name
 }
+
+output "cloudfront_url" {
+  value       = "https://${aws_cloudfront_distribution.ml_data.domain_name}"
+  description = "CloudFront distribution URL for serving message attachments"
+}

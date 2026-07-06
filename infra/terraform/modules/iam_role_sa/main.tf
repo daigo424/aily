@@ -232,9 +232,16 @@ data "aws_iam_policy_document" "aily_api_policy" {
   }
 
   statement {
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${var.ml_data_bucket_arn}/ml_data/app/message_attachments/*"]
+  }
+
+  statement {
     effect = "Allow"
     actions = [
       "kms:Decrypt",
+      "kms:GenerateDataKey",
     ]
     resources = [var.kms_key_arn]
   }

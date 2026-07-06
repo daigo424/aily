@@ -3,15 +3,13 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from packages.core.config import settings
-from packages.core.constants import ReservationStatus
-from packages.core.db.models import BookingRequest, Conversation, Customer, Message, Reservation
+from packages.core.constants import TaskStatus
+from packages.core.db.models import Event, Task
 from packages.core.db.repositories import Repository
 from packages.core.db.session import get_db
-from packages.core.infrastructure import chatapp
 
 router = APIRouter(prefix="/admin")
 
@@ -26,162 +24,192 @@ def _fmt_dt(dt: datetime | None) -> str | None:
     return dt.astimezone(_TZ).isoformat()
 
 
-@router.get("/customers")
-def list_customers(page: int = 1, per_page: int = 20, db: Session = Depends(get_db)) -> dict:
-    offset = (page - 1) * per_page
-    total = db.query(func.count(Customer.id.distinct())).join(Message, Message.customer_id == Customer.id).scalar() or 0
-    rows = (
-        db.query(
-            Customer.id,
-            Customer.name,
-            Customer.phone,
-            func.max(Message.created_at).label("last_message_at"),
-            func.count(Conversation.id.distinct()).label("conversation_count"),
-        )
-        .join(Message, Message.customer_id == Customer.id)
-        .join(Conversation, Conversation.customer_id == Customer.id)
-        .group_by(Customer.id, Customer.name, Customer.phone)
-        .order_by(func.max(Message.created_at).desc())
-        .offset(offset)
-        .limit(per_page)
-        .all()
-    )
+def _parse_dt(s: str) -> datetime:
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_TZ)
+    return dt.astimezone(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Events
+# ---------------------------------------------------------------------------
+
+
+def _event_dict(e: Event) -> dict:
     return {
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "items": [
-            {
-                "id": r.id,
-                "name": r.name,
-                "phone": r.phone,
-                "last_message_at": _fmt_dt(r.last_message_at),
-                "conversation_count": r.conversation_count,
-            }
-            for r in rows
-        ],
+        "id": e.id,
+        "title": e.title,
+        "starts_at": _fmt_dt(e.starts_at),
+        "ends_at": _fmt_dt(e.ends_at),
+        "notes": e.notes,
+        "created_at": _fmt_dt(e.created_at),
+        "updated_at": _fmt_dt(e.updated_at),
     }
 
 
-@router.get("/customers/{phone}")
-def get_customer(phone: str, db: Session = Depends(get_db)) -> dict:
-    customer = db.query(Customer).filter(Customer.phone == phone).one_or_none()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    return {"id": customer.id, "phone": customer.phone, "name": customer.name}
-
-
-@router.get("/customers/{phone}/messages")
-def list_customer_messages(phone: str, page: int = 0, per_page: int = 50, db: Session = Depends(get_db)) -> dict:
-    customer = db.query(Customer).filter(Customer.phone == phone).one_or_none()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    limit = (page + 1) * per_page
-    msgs = db.query(Message).filter(Message.customer_id == customer.id).order_by(Message.created_at.desc()).limit(limit).all()
-    return {
-        "items": [
-            {
-                "id": m.id,
-                "direction": m.direction,
-                "message_type": m.message_type,
-                "text_content": m.text_content,
-                "created_at": _fmt_dt(m.created_at),
-            }
-            for m in msgs
-        ],
-        "has_more": len(msgs) == limit,
-    }
-
-
-class SendMessageBody(BaseModel):
-    text: str
-
-
-@router.post("/customers/{phone}/messages")
-def send_customer_message(phone: str, body: SendMessageBody) -> dict:
-    chatapp.client.send_text_message(phone, body.text)
-    return {"status": "ok"}
-
-
-@router.get("/reservations")
-def list_reservations(
-    show_completed: bool = False,
-    show_voided: bool = False,
-    show_cancelled: bool = False,
-    db: Session = Depends(get_db),
-) -> dict:
-    excluded = []
-    if not show_completed:
-        excluded.append(ReservationStatus.COMPLETED)
-    if not show_voided:
-        excluded.append(ReservationStatus.VOIDED)
-    if not show_cancelled:
-        excluded.append(ReservationStatus.CANCELLED)
-
-    q = db.query(Reservation, Customer).join(Customer, Customer.id == Reservation.customer_id)
-    if excluded:
-        q = q.filter(~Reservation.status.in_(excluded))
-    rows = q.order_by(Reservation.reserved_for.desc()).all()
-
-    return {
-        "items": [
-            {
-                "id": r.id,
-                "reservation_code": r.reservation_code,
-                "status": r.status,
-                "reserved_for": _fmt_dt(r.reserved_for),
-                "completed_at": _fmt_dt(r.completed_at),
-                "voided_at": _fmt_dt(r.voided_at),
-                "cancelled_at": _fmt_dt(r.cancelled_at),
-                "customer_name": c.name,
-                "phone": c.phone,
-            }
-            for r, c in rows
-        ]
-    }
-
-
-@router.get("/reservations/{reservation_id}")
-def get_reservation(reservation_id: int, db: Session = Depends(get_db)) -> dict:
-    row = (
-        db.query(Reservation, Customer, BookingRequest)
-        .join(Customer, Customer.id == Reservation.customer_id)
-        .outerjoin(BookingRequest, BookingRequest.id == Reservation.booking_request_id)
-        .filter(Reservation.id == reservation_id)
-        .one_or_none()
-    )
-    if not row:
-        raise HTTPException(status_code=404, detail="Reservation not found")
-    r, c, br = row
-    return {
-        "id": r.id,
-        "reservation_code": r.reservation_code,
-        "status": r.status,
-        "reserved_for": _fmt_dt(r.reserved_for),
-        "completed_at": _fmt_dt(r.completed_at),
-        "voided_at": _fmt_dt(r.voided_at),
-        "cancelled_at": _fmt_dt(r.cancelled_at),
-        "notes": r.notes,
-        "created_at": _fmt_dt(r.created_at),
-        "updated_at": _fmt_dt(r.updated_at),
-        "customer_id": c.id,
-        "customer_name": c.name,
-        "phone": c.phone,
-        "booking_request_id": br.id if br else None,
-        "booking_request_status": br.status if br else None,
-        "extracted_entities": br.extracted_entities if br else None,
-    }
-
-
-class UpdateStatusBody(BaseModel):
-    status: ReservationStatus
-
-
-@router.patch("/reservations/{reservation_id}/status")
-def update_reservation_status(reservation_id: int, body: UpdateStatusBody, db: Session = Depends(get_db)) -> dict:
+@router.get("/events")
+def list_events(db: Session = Depends(get_db)) -> dict:
     repo = Repository(db)
-    reservation = repo.update_reservation_status(reservation_id, body.status)
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found or already cancelled")
+    return {"items": [_event_dict(e) for e in repo.list_events()]}
+
+
+@router.get("/events/{event_id}")
+def get_event(event_id: int, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    event = repo.get_event(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return _event_dict(event)
+
+
+class CreateEventBody(BaseModel):
+    title: str
+    starts_at: str
+    ends_at: str
+    notes: str | None = None
+    chat_id: int
+
+
+@router.post("/events")
+def create_event(body: CreateEventBody, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    event = repo.create_event(
+        chat_id=body.chat_id,
+        title=body.title,
+        starts_at=_parse_dt(body.starts_at),
+        ends_at=_parse_dt(body.ends_at),
+        notes=body.notes,
+    )
     db.commit()
-    return {"status": reservation.status}
+    return _event_dict(event)
+
+
+class UpdateEventBody(BaseModel):
+    title: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    notes: str | None = None
+
+
+@router.patch("/events/{event_id}")
+def update_event(event_id: int, body: UpdateEventBody, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    kwargs: dict = {}
+    if body.title is not None:
+        kwargs["title"] = body.title
+    if body.starts_at is not None:
+        kwargs["starts_at"] = _parse_dt(body.starts_at)
+    if body.ends_at is not None:
+        kwargs["ends_at"] = _parse_dt(body.ends_at)
+    if body.notes is not None:
+        kwargs["notes"] = body.notes
+    event = repo.update_event(event_id, **kwargs)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    db.commit()
+    return _event_dict(event)
+
+
+@router.delete("/events/{event_id}")
+def delete_event(event_id: int, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    if not repo.delete_event(event_id):
+        raise HTTPException(status_code=404, detail="Event not found")
+    db.commit()
+    return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
+
+def _task_dict(t: Task) -> dict:
+    return {
+        "id": t.id,
+        "title": t.title,
+        "starts_at": _fmt_dt(t.starts_at),
+        "ends_at": _fmt_dt(t.ends_at),
+        "status": t.status,
+        "notes": t.notes,
+        "created_at": _fmt_dt(t.created_at),
+        "updated_at": _fmt_dt(t.updated_at),
+    }
+
+
+@router.get("/tasks")
+def list_tasks(db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    return {"items": [_task_dict(t) for t in repo.list_tasks()]}
+
+
+@router.get("/tasks/{task_id}")
+def get_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    task = repo.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return _task_dict(task)
+
+
+class CreateTaskBody(BaseModel):
+    title: str
+    starts_at: str
+    ends_at: str
+    status: str = TaskStatus.NOT_STARTED
+    notes: str | None = None
+    chat_id: int
+
+
+@router.post("/tasks")
+def create_task(body: CreateTaskBody, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    task = repo.create_task(
+        chat_id=body.chat_id,
+        title=body.title,
+        starts_at=_parse_dt(body.starts_at),
+        ends_at=_parse_dt(body.ends_at),
+        status=body.status,
+        notes=body.notes,
+    )
+    db.commit()
+    return _task_dict(task)
+
+
+class UpdateTaskBody(BaseModel):
+    title: str | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    status: str | None = None
+    notes: str | None = None
+
+
+@router.patch("/tasks/{task_id}")
+def update_task(task_id: int, body: UpdateTaskBody, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    kwargs: dict = {}
+    if body.title is not None:
+        kwargs["title"] = body.title
+    if body.starts_at is not None:
+        kwargs["starts_at"] = _parse_dt(body.starts_at)
+    if body.ends_at is not None:
+        kwargs["ends_at"] = _parse_dt(body.ends_at)
+    if body.status is not None:
+        kwargs["status"] = body.status
+    if body.notes is not None:
+        kwargs["notes"] = body.notes
+    task = repo.update_task(task_id, **kwargs)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    db.commit()
+    return _task_dict(task)
+
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    repo = Repository(db)
+    if not repo.delete_task(task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    db.commit()
+    return {"status": "deleted"}

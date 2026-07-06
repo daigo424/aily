@@ -21,3 +21,9 @@ def api_patch(path: str, data: dict) -> dict:
     resp = httpx.patch(f"{API_BASE_URL}{path}", json=data, timeout=30)
     resp.raise_for_status()
     return resp.json()
+
+
+def api_delete(path: str) -> dict:
+    resp = httpx.delete(f"{API_BASE_URL}{path}", timeout=30)
+    resp.raise_for_status()
+    return resp.json()

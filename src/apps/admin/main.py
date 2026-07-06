@@ -7,22 +7,19 @@ root_path = os.environ.get("APP_ROOT")
 if root_path is not None and root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-st.set_page_config(page_title="WhatsApp Booking Admin", layout="wide")
+st.set_page_config(page_title="Aily Admin", layout="wide")
 
-customers_page = st.Page("pages/customers.py", title="顧客一覧")
-reservations_page = st.Page("pages/reservations.py", title="予約一覧")
-messages_page = st.Page("pages/customer_messages.py", title="顧客メッセージ")
-detail_page = st.Page("pages/reservation_detail.py", title="予約詳細", url_path="reservation_detail")
+events_page = st.Page("pages/events.py", title="予定一覧")
+tasks_page = st.Page("pages/tasks.py", title="タスク一覧")
 
 pg = st.navigation(
-    [customers_page, reservations_page, messages_page, detail_page],
+    [events_page, tasks_page],
     position="hidden",
 )
 
 with st.sidebar:
     st.title("Admin")
-    st.page_link(customers_page, label="顧客一覧")
-    st.page_link(reservations_page, label="予約一覧")
-    st.page_link(messages_page, label="顧客メッセージ")
+    st.page_link(events_page, label="予定一覧")
+    st.page_link(tasks_page, label="タスク一覧")
 
 pg.run()

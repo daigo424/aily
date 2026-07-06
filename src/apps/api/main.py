@@ -6,7 +6,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from apps.api.routers import admin, chat, webhook
+from apps.api.routers import admin, attachments, chat, chats
 from packages.core.config import settings
 from packages.core.graph import build_graph
 from packages.core.infrastructure import socket
@@ -15,20 +15,21 @@ from packages.core.logging import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    pool = ConnectionPool(conninfo=settings.cp_conversation_database_url, max_size=10, open=True, kwargs={"autocommit": True, "row_factory": dict_row})
+    pool = ConnectionPool(conninfo=settings.checkpointer_database_url, max_size=10, open=True, kwargs={"autocommit": True, "row_factory": dict_row})
     checkpointer = PostgresSaver(pool)  # type: ignore[arg-type]
     checkpointer.setup()
-    app.state.booking_graph = build_graph(checkpointer)
+    app.state.schedule_graph = build_graph(checkpointer)
     logger.debug("✅ LangGraph PostgresSaver checkpointer initialized")
     yield
     pool.close()
     logger.debug("✅ LangGraph checkpointer connection pool closed")
 
 
-app = FastAPI(title="WhatsApp Booking API", lifespan=lifespan)
+app = FastAPI(title="Aily API", lifespan=lifespan)
 
-app.include_router(webhook.router)
 app.include_router(chat.router)
+app.include_router(chats.router)
+app.include_router(attachments.router)
 app.include_router(admin.router)
 
 

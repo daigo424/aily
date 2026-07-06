@@ -1,23 +1,25 @@
 from enum import StrEnum
 
 
-class ReservationStatus(StrEnum):
-    PENDING = "pending"  # 予約受付済・確認中
-    COMPLETED = "completed"
-    VOIDED = "voided"  # 管理者による無効化
-    CANCELLED = "cancelled"  # 顧客によるキャンセル（WhatsApp）
-
-
-class BookingRequestStatus(StrEnum):
+class ScheduleDraftStatus(StrEnum):
     COLLECTING = "collecting"
     READY = "ready"
     CONFIRMED = "confirmed"
 
 
+class TaskStatus(StrEnum):
+    NOT_STARTED = "not_started"
+    DOING = "doing"
+    DONE = "done"
+
+
+class ScheduleItemType(StrEnum):
+    EVENT = "event"
+    TASK = "task"
+
+
 class ConversationIntent(StrEnum):
-    BOOK_RESERVATION = "book_reservation"
-    UPDATE_BOOKING_REQUEST = "update_booking_request"
-    ASK_AVAILABILITY = "ask_availability"
-    CANCEL_RESERVATION = "cancel_reservation"
+    ADD_SCHEDULE = "add_schedule"
+    LIST_SCHEDULE = "list_schedule"
     SMALLTALK = "smalltalk"
     UNKNOWN = "unknown"

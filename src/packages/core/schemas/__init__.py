@@ -1,3 +1,3 @@
-from .schemas import BookingExtraction, NormalizedInbound
+from .schemas import ScheduleExtraction
 
-__all__ = ["BookingExtraction", "NormalizedInbound"]
+__all__ = ["ScheduleExtraction"]

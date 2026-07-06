@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import calendar
-import random
-import string
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from packages.core.config import settings
-from packages.core.constants import BookingRequestStatus, ReservationStatus
-from packages.core.db.models import BookingRequest, Conversation, ConversationFlowCancelItem, Customer, Message, Reservation
+from packages.core.constants import ScheduleDraftStatus, ScheduleItemType, TaskStatus
+from packages.core.db.models import Chat, Event, Message, MessageAttachment, ScheduleDraft, Task
 
 _TZ = ZoneInfo(settings.timezone)
 
@@ -19,215 +17,242 @@ class Repository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_or_create_customer(self, phone: str, name: str | None = None) -> Customer:
-        customer = self.db.query(Customer).filter(Customer.phone == phone).one_or_none()
-        if customer:
-            if name and customer.name != name:
-                customer.name = name
-            return customer
-        customer = Customer(phone=phone, name=name)
-        self.db.add(customer)
-        self.db.flush()
-        return customer
+    # --- Chat ---
 
-    def get_or_create_active_conversation(self, customer: Customer) -> Conversation:
-        conversation = (
-            self.db.query(Conversation).filter(Conversation.customer_id == customer.id, Conversation.status == "active").order_by(Conversation.id.desc()).first()
-        )
-        if conversation:
-            conversation.last_message_at = datetime.now(timezone.utc)
-            return conversation
-        conversation = Conversation(customer_id=customer.id, channel="whatsapp", status="active")
-        self.db.add(conversation)
-        self.db.flush()
-        return conversation
+    def get_chat(self, chat_id: int) -> Chat | None:
+        return self.db.query(Chat).filter(Chat.id == chat_id).one_or_none()
 
-    def message_exists(self, wamid: str | None) -> bool:
-        if not wamid:
-            return False
-        return self.db.query(Message).filter(Message.wamid == wamid).first() is not None
+    def create_chat(self, *, channel: str = "web", sender: str | None = None) -> Chat:
+        chat = Chat(channel=channel, sender=sender, status="active")
+        self.db.add(chat)
+        self.db.flush()
+        return chat
+
+    def list_chats(self, channel: str | None = None) -> list[Chat]:
+        q = self.db.query(Chat)
+        if channel:
+            q = q.filter(Chat.channel == channel)
+        return q.order_by(Chat.last_message_at.desc()).all()
+
+    def update_chat_title(self, chat_id: int, title: str) -> None:
+        chat = self.get_chat(chat_id)
+        if chat:
+            chat.title = title
+            self.db.flush()
+
+    # --- Message ---
 
     def save_message(
         self,
         *,
-        conversation: Conversation,
-        customer: Customer,
-        wamid: str | None,
+        chat: Chat,
         direction: str,
         message_type: str,
-        text_content: str | None,
-        raw_payload: dict,
-        normalized_payload: dict,
+        text_content: str | None = None,
         raw_llm_result: dict,
     ) -> Message:
         msg = Message(
-            conversation_id=conversation.id,
-            customer_id=customer.id,
-            wamid=wamid,
+            chat_id=chat.id,
             direction=direction,
             message_type=message_type,
             text_content=text_content,
-            raw_payload=raw_payload,
-            normalized_payload=normalized_payload,
             raw_llm_result=raw_llm_result,
         )
         self.db.add(msg)
+        chat.last_message_at = datetime.now(timezone.utc)
         self.db.flush()
         return msg
 
-    def get_cancel_flow_reservation_ids(self, conversation_id: int) -> list[int]:
-        items = self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation_id).all()
-        return [item.reservation_id for item in items]
+    def count_messages(self, chat_id: int) -> int:
+        return self.db.query(func.count(Message.id)).filter(Message.chat_id == chat_id).scalar() or 0
 
-    def set_cancel_flow(self, conversation: Conversation, reservation_ids: list[int]) -> None:
-        self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation.id).delete()
-        for rid in reservation_ids:
-            self.db.add(ConversationFlowCancelItem(conversation_id=conversation.id, reservation_id=rid))
-        conversation.active_flow = "cancel_selection"
+    # --- MessageAttachment ---
 
-    def clear_cancel_flow(self, conversation: Conversation) -> None:
-        self.db.query(ConversationFlowCancelItem).filter(ConversationFlowCancelItem.conversation_id == conversation.id).delete()
-        conversation.active_flow = None
-
-    def create_or_update_booking_request(
+    def save_attachment(
         self,
         *,
-        conversation: Conversation,
-        customer: Customer,
+        message_id: int,
+        file_name: str,
+        storage_key: str,
+        mime_type: str,
+        file_size: int,
+    ) -> MessageAttachment:
+        att = MessageAttachment(
+            message_id=message_id,
+            file_name=file_name,
+            storage_key=storage_key,
+            mime_type=mime_type,
+            file_size=file_size,
+        )
+        self.db.add(att)
+        self.db.flush()
+        return att
+
+    def get_attachment(self, attachment_id: int) -> MessageAttachment | None:
+        return self.db.query(MessageAttachment).filter(MessageAttachment.id == attachment_id).one_or_none()
+
+    def get_attachment_by_message_id(self, message_id: int) -> MessageAttachment | None:
+        return self.db.query(MessageAttachment).filter(MessageAttachment.message_id == message_id).first()
+
+    # --- ScheduleDraft ---
+
+    def create_or_update_schedule_draft(
+        self,
+        *,
+        chat: Chat,
         source_message: Message,
         parsed: dict,
-    ) -> BookingRequest:
-        booking_request = (
-            self.db.query(BookingRequest)
+    ) -> ScheduleDraft:
+        draft = (
+            self.db.query(ScheduleDraft)
             .filter(
-                BookingRequest.conversation_id == conversation.id,
-                BookingRequest.status.in_([BookingRequestStatus.COLLECTING, BookingRequestStatus.READY]),
+                ScheduleDraft.chat_id == chat.id,
+                ScheduleDraft.status.in_([ScheduleDraftStatus.COLLECTING, ScheduleDraftStatus.READY]),
             )
-            .order_by(BookingRequest.id.desc())
+            .order_by(ScheduleDraft.id.desc())
             .first()
         )
-        if not booking_request:
-            booking_request = BookingRequest(
-                conversation_id=conversation.id,
-                customer_id=customer.id,
-                status=BookingRequestStatus.COLLECTING,
+        if not draft:
+            draft = ScheduleDraft(
+                chat_id=chat.id,
                 source_message_id=source_message.id,
+                status=ScheduleDraftStatus.COLLECTING,
             )
-            self.db.add(booking_request)
+            self.db.add(draft)
             self.db.flush()
 
-        raw_date = parsed.get("reserved_date")
+        if parsed.get("item_type"):
+            draft.item_type = parsed["item_type"]
+        if parsed.get("title"):
+            draft.title = parsed["title"]
+        raw_date = parsed.get("scheduled_date")
         if raw_date and isinstance(raw_date, str):
             raw_date = date.fromisoformat(raw_date)
-        booking_request.requested_date = raw_date or booking_request.requested_date
-        booking_request.requested_time = parsed.get("reserved_time") or booking_request.requested_time
-        booking_request.notes = parsed.get("notes") or booking_request.notes
-        booking_request.extracted_entities = parsed
+        if raw_date:
+            draft.scheduled_date = raw_date
+        if parsed.get("start_time"):
+            draft.start_time = parsed["start_time"]
+        if parsed.get("end_time"):
+            draft.end_time = parsed["end_time"]
+        if parsed.get("notes"):
+            draft.notes = parsed["notes"]
+        draft.extracted_entities = parsed
 
-        if booking_request.requested_date and booking_request.requested_time:
-            booking_request.status = BookingRequestStatus.READY
+        if draft.item_type and draft.title and draft.scheduled_date and draft.start_time and draft.end_time:
+            draft.status = ScheduleDraftStatus.READY
         else:
-            booking_request.status = BookingRequestStatus.COLLECTING
-        return booking_request
+            draft.status = ScheduleDraftStatus.COLLECTING
+        return draft
 
-    def get_available_dates_in_month(self, year: int, month: int, weekday: int | None = None) -> list[date]:
-        _, days_in_month = calendar.monthrange(year, month)
-        start_dt = datetime(year, month, 1, tzinfo=_TZ)
-        end_dt = datetime(year, month, days_in_month, 23, 59, 59, tzinfo=_TZ)
+    def confirm_schedule_from_draft(self, draft: ScheduleDraft) -> Event | Task:
+        assert draft.scheduled_date is not None
+        assert draft.start_time is not None
+        assert draft.end_time is not None
 
-        reservations = (
-            self.db.query(Reservation)
-            .filter(
-                Reservation.status == ReservationStatus.PENDING,
-                Reservation.reserved_for >= start_dt,
-                Reservation.reserved_for <= end_dt,
-            )
-            .all()
-        )
-
-        booked_counts: dict[date, int] = {}
-        for r in reservations:
-            d = r.reserved_for.astimezone(_TZ).date()
-            booked_counts[d] = booked_counts.get(d, 0) + 1
-
-        max_slots_per_day = 9  # 9:00-17:00 の 1 時間枠
-        available = []
-        for day in range(1, days_in_month + 1):
-            d = date(year, month, day)
-            if weekday is not None and d.weekday() != weekday:
-                continue
-            if booked_counts.get(d, 0) < max_slots_per_day:
-                available.append(d)
-        return available
-
-    def is_time_slot_available(self, reserved_for: datetime) -> bool:
-        """reserved_for から 1 時間枠が他の confirmed 予約と重複していなければ True"""
-        slot_duration = timedelta(hours=1)
-        conflicting = (
-            self.db.query(Reservation)
-            .filter(
-                Reservation.status == ReservationStatus.PENDING,
-                Reservation.reserved_for < reserved_for + slot_duration,
-                Reservation.reserved_for > reserved_for - slot_duration,
-            )
-            .first()
-        )
-        return conflicting is None
-
-    @staticmethod
-    def build_reserved_for(booking_request: BookingRequest) -> datetime:
-        assert booking_request.requested_date is not None
-        assert booking_request.requested_time is not None
-        reserved_local = datetime.combine(
-            booking_request.requested_date,
-            time.fromisoformat(booking_request.requested_time),
+        starts_at = datetime.combine(
+            draft.scheduled_date,
+            datetime.strptime(draft.start_time, "%H:%M").time(),
             tzinfo=_TZ,
-        )
-        return reserved_local.astimezone(timezone.utc)
+        ).astimezone(timezone.utc)
+        ends_at = datetime.combine(
+            draft.scheduled_date,
+            datetime.strptime(draft.end_time, "%H:%M").time(),
+            tzinfo=_TZ,
+        ).astimezone(timezone.utc)
 
-    def confirm_reservation_from_booking_request(self, booking_request: BookingRequest) -> Reservation:
-        reserved_for = self.build_reserved_for(booking_request)
-        reservation = Reservation(
-            conversation_id=booking_request.conversation_id,
-            customer_id=booking_request.customer_id,
-            booking_request_id=booking_request.id,
-            reservation_code=self._reservation_code(),
-            status=ReservationStatus.PENDING,
-            reserved_for=reserved_for,
-            notes=booking_request.notes,
-        )
-        self.db.add(reservation)
-        booking_request.status = BookingRequestStatus.CONFIRMED
+        if draft.item_type == ScheduleItemType.TASK:
+            item: Event | Task = Task(
+                chat_id=draft.chat_id,
+                draft_id=draft.id,
+                title=draft.title,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                status=TaskStatus.NOT_STARTED,
+                notes=draft.notes,
+            )
+        else:
+            item = Event(
+                chat_id=draft.chat_id,
+                draft_id=draft.id,
+                title=draft.title,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                notes=draft.notes,
+            )
+        self.db.add(item)
+        draft.status = ScheduleDraftStatus.CONFIRMED
         self.db.flush()
-        return reservation
+        return item
 
-    def update_reservation_status(self, reservation_id: int, status: ReservationStatus) -> Reservation | None:
-        reservation = self.db.query(Reservation).filter(Reservation.id == reservation_id).one_or_none()
-        if reservation and reservation.status != ReservationStatus.CANCELLED:
-            reservation.status = status
-            if status == ReservationStatus.VOIDED:
-                reservation.voided_at = datetime.now(timezone.utc)
-            elif status == ReservationStatus.COMPLETED:
-                reservation.completed_at = datetime.now(timezone.utc)
-            self.db.flush()
-        return reservation
+    # --- Event CRUD ---
 
-    def get_confirmed_reservations_for_customer(self, customer_id: int) -> list[Reservation]:
-        return (
-            self.db.query(Reservation)
-            .filter(Reservation.customer_id == customer_id, Reservation.status == ReservationStatus.PENDING)
-            .order_by(Reservation.reserved_for.asc())
-            .all()
-        )
+    def list_events(self) -> list[Event]:
+        return self.db.query(Event).order_by(Event.starts_at.desc()).all()
 
-    def cancel_reservation(self, reservation_id: int) -> Reservation | None:
-        reservation = self.db.query(Reservation).filter(Reservation.id == reservation_id).one_or_none()
-        if reservation and reservation.status == ReservationStatus.PENDING:
-            reservation.status = ReservationStatus.CANCELLED
-            reservation.cancelled_at = datetime.now(timezone.utc)
-            self.db.flush()
-        return reservation
+    def get_event(self, event_id: int) -> Event | None:
+        return self.db.query(Event).filter(Event.id == event_id).one_or_none()
 
-    @staticmethod
-    def _reservation_code() -> str:
-        return "RSV-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    def create_event(self, *, chat_id: int, title: str, starts_at: datetime, ends_at: datetime, notes: str | None) -> Event:
+        event = Event(chat_id=chat_id, title=title, starts_at=starts_at, ends_at=ends_at, notes=notes)
+        self.db.add(event)
+        self.db.flush()
+        return event
+
+    def update_event(self, event_id: int, **kwargs) -> Event | None:
+        event = self.get_event(event_id)
+        if not event:
+            return None
+        for k, v in kwargs.items():
+            if hasattr(event, k):
+                setattr(event, k, v)
+        self.db.flush()
+        return event
+
+    def delete_event(self, event_id: int) -> bool:
+        event = self.get_event(event_id)
+        if not event:
+            return False
+        self.db.delete(event)
+        self.db.flush()
+        return True
+
+    # --- Task CRUD ---
+
+    def list_tasks(self) -> list[Task]:
+        return self.db.query(Task).order_by(Task.starts_at.desc()).all()
+
+    def get_task(self, task_id: int) -> Task | None:
+        return self.db.query(Task).filter(Task.id == task_id).one_or_none()
+
+    def create_task(
+        self,
+        *,
+        chat_id: int,
+        title: str,
+        starts_at: datetime,
+        ends_at: datetime,
+        status: str,
+        notes: str | None,
+    ) -> Task:
+        task = Task(chat_id=chat_id, title=title, starts_at=starts_at, ends_at=ends_at, status=status, notes=notes)
+        self.db.add(task)
+        self.db.flush()
+        return task
+
+    def update_task(self, task_id: int, **kwargs) -> Task | None:
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        for k, v in kwargs.items():
+            if hasattr(task, k):
+                setattr(task, k, v)
+        self.db.flush()
+        return task
+
+    def delete_task(self, task_id: int) -> bool:
+        task = self.get_task(task_id)
+        if not task:
+            return False
+        self.db.delete(task)
+        self.db.flush()
+        return True

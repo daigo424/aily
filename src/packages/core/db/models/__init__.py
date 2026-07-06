@@ -1,8 +1,8 @@
-from .booking_request import BookingRequest
-from .conversation import Conversation
-from .conversation_flow_cancel_item import ConversationFlowCancelItem
-from .customer import Customer
+from .chat import Chat
+from .event import Event
 from .message import Message
-from .reservation import Reservation
+from .message_attachment import MessageAttachment
+from .schedule_draft import ScheduleDraft
+from .task import Task
 
-__all__ = ["Conversation", "ConversationFlowCancelItem", "Customer", "Message", "Reservation", "BookingRequest"]
+__all__ = ["Chat", "Event", "Message", "MessageAttachment", "ScheduleDraft", "Task"]
