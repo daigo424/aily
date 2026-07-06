@@ -61,7 +61,7 @@ jobs:
           K8S_TAG_FILTER="Key=elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
           EKS_CLUSTER_NAME_TAG_FILTER="Key=eks:cluster-name,Values=$CLUSTER_NAME"
           EKS_EKS_CLUSTER_NAME_TAG_FILTER="Key=eks:eks-cluster-name,Values=$CLUSTER_NAME"
-          KARPENTER_INSTANCE_FILTER="Name=tag:karpenter.sh/cluster-name,Values=$CLUSTER_NAME"
+          KARPENTER_INSTANCE_FILTER="Name=tag:kubernetes.io/cluster/$CLUSTER_NAME,Values=owned"
           LBC_SG_FILTER="Name=tag:elbv2.k8s.aws/cluster,Values=$CLUSTER_NAME"
           KARPENTER_SG_FILTER="Name=tag:karpenter.sh/discovery,Values=$CLUSTER_NAME"
           ENI_TAG_FILTER="Key=eks:eks-cluster-name,Values=$CLUSTER_NAME"
