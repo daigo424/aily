@@ -54,6 +54,8 @@ class LLMClient(Interface):
         temperature: float = 0.1,
         image_base64: str | None = None,
         image_mime_type: str | None = None,
+        history: list[dict] | None = None,
+        system_prompt: str | None = None,
     ) -> Any:
         strict_schema = _make_strict(json.loads(json.dumps(schema)))
         if self._is_ollama():
@@ -64,6 +66,12 @@ class LLMClient(Interface):
                 "json_schema": {"name": "response", "schema": strict_schema, "strict": True},
             }
 
+        messages: list[dict] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        if history:
+            messages.extend(history)
+
         if image_base64:
             data_url = f"data:{image_mime_type or 'image/jpeg'};base64,{image_base64}"
             content: str | list = [
@@ -72,14 +80,23 @@ class LLMClient(Interface):
             ]
         else:
             content = prompt
+        messages.append({"role": "user", "content": content})
 
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": content}],
+            messages=messages,
             temperature=temperature,
             response_format=response_format,
         )
         return json.loads(response.choices[0].message.content or "{}")
+
+    def gen_text(self, prompt: str, temperature: float = 0.3) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+        )
+        return (response.choices[0].message.content or "").strip()
 
     def gen_content_from_image(self, image_bytes: bytes, mime_type: str | None) -> str:
         b64 = base64.b64encode(image_bytes).decode()

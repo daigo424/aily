@@ -5,25 +5,20 @@ from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 
-class BookingState(TypedDict):
-    # Conversation history — accumulated across turns via checkpointer
+class ScheduleState(TypedDict):
+    # Messages history — accumulated across turns via checkpointer
     messages: Annotated[list[BaseMessage], add_messages]
 
     # Per-turn inputs
     text_body: str | None
     sender: str
-    customer_id: int
-    conversation_id: int
-    wamid: str | None
-    raw_message: dict[str, Any]
-    normalized: dict[str, Any]
-
-    # Reservation IDs presented to the user during cancel flow (from conversation_flow_cancel_items)
-    pending_cancel_ids: list[int]
+    chat_id: int
+    image_base64: str | None
+    image_mime_type: str | None
 
     # LLM extraction result
     raw_llm_result: dict[str, Any]
     intent: str
 
-    # Reply to send back to the customer
+    # Reply to send back to the user
     reply: str

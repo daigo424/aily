@@ -55,7 +55,7 @@ services:
       API_BASE_URL: http://api:8000
     ports:
       - "8502:8502"
-    command: streamlit run src/apps/frontend/main.py --server.address=0.0.0.0 --server.port=8502
+    command: python -m watchfiles "python src/apps/frontend/main.py" src/
 
   mlflow:
     build:

@@ -1,4 +1,4 @@
-table "conversations" {
+table "chats" {
   schema = schema.public
 
   column "id" {
@@ -9,15 +9,15 @@ table "conversations" {
     }
   }
 
-  column "customer_id" {
-    null = false
-    type = integer
-  }
-
   column "channel" {
     null    = false
     type    = varchar(32)
-    default = "whatsapp"
+    default = "web"
+  }
+
+  column "sender" {
+    null = true
+    type = varchar(64)
   }
 
   column "status" {
@@ -26,12 +26,12 @@ table "conversations" {
     default = "active"
   }
 
-  column "current_intent" {
+  column "title" {
     null = true
-    type = varchar(64)
+    type = varchar(255)
   }
 
-  column "active_flow" {
+  column "current_intent" {
     null = true
     type = varchar(64)
   }
@@ -58,7 +58,15 @@ table "conversations" {
     columns = [column.id]
   }
 
-  index "ix_conversations_customer_id" {
-    columns = [column.customer_id]
+  index "ix_chats_channel" {
+    columns = [column.channel]
+  }
+
+  index "ix_chats_sender" {
+    columns = [column.sender]
+  }
+
+  index "ix_chats_last_message_at" {
+    columns = [column.last_message_at]
   }
 }

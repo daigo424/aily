@@ -10,6 +10,11 @@ output "ml_data_kms_key_arn" {
   value = module.ml_data.kms_key_arn
 }
 
+output "cloudfront_url" {
+  value       = module.ml_data.cloudfront_url
+  description = "CloudFront URL for serving message attachments from S3"
+}
+
 output "github_actions_role_arn" {
   value = module.ml_data.github_actions_role_arn
 }

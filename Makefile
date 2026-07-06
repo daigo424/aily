@@ -45,12 +45,6 @@ lint-fix:
 test:
 	$(RUN) api python -m pytest
 
-draw-graph:
-	$(RUN) api python scripts/draw_graph.py
-
-publish:
-	ngrok http --domain=$(LOCAL_PUBLISH_DOMAIN) 8000
-
 atlas-version:
 	$(RUN) atlas version
 
@@ -80,6 +74,11 @@ db:
 
 db-atlas-dev:
 	$(EXEC) db_dev psql "$(APP_ATLAS_DEV_DB_URL)"
+
+# --- Support ---
+
+draw-graph:
+	$(RUN) api python scripts/draw_graph.py
 
 # --- LLM ---
 
@@ -160,7 +159,7 @@ frontend-ui: check-aws-profile kubeconfig
 
 check-hf-to-s3:
 ifndef HF_MODEL_ID
-	$(error HF_MODEL_ID が未設定です。.env に HF_MODEL_ID=<hf_repo_id> を追記してください (例: HF_MODEL_ID=Qwen/Qwen2.5-VL-7B-Instruct))
+	$(error HF_MODEL_ID が未設定です。.env に HF_MODEL_ID=<hf_repo_id> を追記してください (例: HF_MODEL_ID=meta-llama/Llama-3.2-11B-Vision-Instruct))
 endif
 ifndef ML_DATA_BUCKET
 	$(error ML_DATA_BUCKET が未設定です。.env に ML_DATA_BUCKET=<bucket_name> を追記してください)

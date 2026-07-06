@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
@@ -11,15 +13,23 @@ from sqlalchemy.orm import Session
 
 from packages.core.db.repositories import Repository
 from packages.core.db.session import SessionLocal
-from packages.core.graph.state import BookingState
+from packages.core.graph.state import ScheduleState
+from packages.core.infrastructure.storage import backend as storage
 from packages.core.logging import logger
+from packages.core.usecases import generate_title
 
 router = APIRouter()
+
+_TITLE_INTERVAL = 10  # every 5 exchanges (10 messages)
+
+
+def _should_generate_title(msg_count: int) -> bool:
+    return msg_count >= 2 and (msg_count - 2) % _TITLE_INTERVAL == 0
 
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: str
+    chat_id: int
     image_base64: str | None = None
     image_mime_type: str | None = None
 
@@ -30,34 +40,41 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
         db: Session = SessionLocal()
         repo = Repository(db)
         try:
-            phone = f"chat_{body.session_id}"
-            customer = repo.get_or_create_customer(phone=phone)
-            conversation = repo.get_or_create_active_conversation(customer)
-            pending_ids = repo.get_cancel_flow_reservation_ids(conversation.id)
+            current_chat = repo.get_chat(body.chat_id)
+            if not current_chat:
+                yield f"data: {json.dumps('チャットが見つかりません。')}\n\n"
+                yield "data: [DONE]\n\n"
+                return
 
+            msg_type = "image" if body.image_base64 else "text"
             saved_message = repo.save_message(
-                conversation=conversation,
-                customer=customer,
-                wamid=None,
+                chat=current_chat,
                 direction="inbound",
-                message_type="text",
+                message_type=msg_type,
                 text_content=body.message,
-                raw_payload={"text": {"body": body.message}},
-                normalized_payload={"message_type": "text", "text": body.message, "received_at": datetime.now(timezone.utc).isoformat()},
                 raw_llm_result={},
             )
             db.flush()
 
-            initial_state = BookingState(
+            if body.image_base64:
+                image_bytes = base64.b64decode(body.image_base64)
+                mime = body.image_mime_type or "image/jpeg"
+                ext = mime.split("/")[-1].replace("jpeg", "jpg")
+                key = f"{uuid.uuid4()}.{ext}"
+                storage.save(key, image_bytes, mime)
+                repo.save_attachment(
+                    message_id=saved_message.id,
+                    file_name=key,
+                    storage_key=key,
+                    mime_type=mime,
+                    file_size=len(image_bytes),
+                )
+
+            initial_state = ScheduleState(
                 messages=[HumanMessage(content=body.message, additional_kwargs={"created_at": datetime.now(timezone.utc).isoformat()})],
                 text_body=body.message,
-                sender=phone,
-                customer_id=customer.id,
-                conversation_id=conversation.id,
-                wamid=None,
-                raw_message={"text": {"body": body.message}},
-                normalized={"message_type": "text", "text": body.message},
-                pending_cancel_ids=pending_ids,
+                sender=f"web_{body.chat_id}",
+                chat_id=body.chat_id,
                 raw_llm_result={},
                 intent="",
                 reply="...",
@@ -65,17 +82,17 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
                 image_mime_type=body.image_mime_type,
             )
 
-            booking_graph = request.app.state.booking_graph
+            schedule_graph = request.app.state.schedule_graph
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
                 None,
-                lambda: booking_graph.invoke(
+                lambda: schedule_graph.invoke(
                     initial_state,
                     config={
                         "configurable": {
-                            "thread_id": str(conversation.id),
+                            "thread_id": str(body.chat_id),
                             "repo": repo,
-                            "conversation": conversation,
+                            "chat": current_chat,
                             "source_message": saved_message,
                         }
                     },
@@ -86,21 +103,31 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
             reply: str = result["reply"]
 
             repo.save_message(
-                conversation=conversation,
-                customer=customer,
-                wamid=None,
+                chat=current_chat,
                 direction="outbound",
                 message_type="text",
                 text_content=reply,
-                raw_payload={"generated": True},
-                normalized_payload={"text": reply},
                 raw_llm_result={},
             )
+
+            # タイトル生成（1回目 or 5往復ごと）
+            msg_count = repo.count_messages(body.chat_id)
+            new_title: str | None = None
+            if _should_generate_title(msg_count):
+                recent_msgs = result.get("messages", [])[-8:]
+                new_title = await loop.run_in_executor(None, lambda: generate_title.execute(recent_msgs))
+                if new_title:
+                    repo.update_chat_title(body.chat_id, new_title)
+
             db.commit()
 
             for word in reply.split(" "):
                 yield f"data: {json.dumps(word + ' ')}\n\n"
                 await asyncio.sleep(0.04)
+
+            if new_title:
+                yield f"data: {json.dumps({'type': 'title_update', 'title': new_title, 'chat_id': body.chat_id})}\n\n"
+
             yield "data: [DONE]\n\n"
 
         except Exception as e:

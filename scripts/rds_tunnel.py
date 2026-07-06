@@ -7,8 +7,8 @@ import subprocess
 import boto3
 
 
-def get_bastion_instance_id(name_prefix: str) -> str:
-    ec2 = boto3.client("ec2")
+def get_bastion_instance_id(name_prefix: str, region: str) -> str:
+    ec2 = boto3.client("ec2", region_name=region)
     resp = ec2.describe_instances(
         Filters=[
             {"Name": "tag:Name", "Values": [f"{name_prefix}-bastion"]},
@@ -21,8 +21,8 @@ def get_bastion_instance_id(name_prefix: str) -> str:
     return instances[0]["InstanceId"]
 
 
-def get_rds_endpoint(name_prefix: str) -> str:
-    rds = boto3.client("rds")
+def get_rds_endpoint(name_prefix: str, region: str) -> str:
+    rds = boto3.client("rds", region_name=region)
     resp = rds.describe_db_instances(DBInstanceIdentifier=name_prefix)
     return resp["DBInstances"][0]["Endpoint"]["Address"]
 
@@ -31,14 +31,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="SSM port-forwarding to RDS via bastion")
     parser.add_argument("--env", default="test", help="Environment (default: test)")
     parser.add_argument("--port", default="5432", help="Local port (default: 5432)")
+    parser.add_argument("--region", default="us-west-2", help="AWS region (default: us-west-2)")
     args = parser.parse_args()
 
     name_prefix = f"aily-{args.env}"
 
     print(f"Environment : {args.env}")
-    instance_id = get_bastion_instance_id(name_prefix)
+    print(f"Region      : {args.region}")
+    instance_id = get_bastion_instance_id(name_prefix, args.region)
     print(f"Bastion     : {instance_id}")
-    endpoint = get_rds_endpoint(name_prefix)
+    endpoint = get_rds_endpoint(name_prefix, args.region)
     print(f"RDS         : {endpoint}")
     print(f"Local port  : {args.port}")
     print("\nConnecting... (Ctrl+C to stop)")
@@ -47,6 +49,7 @@ def main() -> None:
     subprocess.run(
         [
             "aws", "ssm", "start-session",
+            "--region", args.region,
             "--target", instance_id,
             "--document-name", "AWS-StartPortForwardingSessionToRemoteHost",
             "--parameters", f"host={endpoint},portNumber=5432,localPortNumber={args.port}",

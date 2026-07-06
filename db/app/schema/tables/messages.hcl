@@ -9,19 +9,9 @@ table "messages" {
     }
   }
 
-  column "conversation_id" {
+  column "chat_id" {
     null = false
     type = integer
-  }
-
-  column "customer_id" {
-    null = false
-    type = integer
-  }
-
-  column "wamid" {
-    null = true
-    type = varchar(255)
   }
 
   column "direction" {
@@ -37,18 +27,6 @@ table "messages" {
   column "text_content" {
     null = true
     type = text
-  }
-
-  column "raw_payload" {
-    null    = false
-    type    = jsonb
-    default = sql("'{}'::jsonb")
-  }
-
-  column "normalized_payload" {
-    null    = false
-    type    = jsonb
-    default = sql("'{}'::jsonb")
   }
 
   column "raw_llm_result" {
@@ -67,15 +45,13 @@ table "messages" {
     columns = [column.id]
   }
 
-  unique "uq_messages_wamid" {
-    columns = [column.wamid]
+  foreign_key "fk_messages_chat_id" {
+    columns     = [column.chat_id]
+    ref_columns = [table.chats.column.id]
+    on_delete   = CASCADE
   }
 
-  index "ix_messages_conversation_id" {
-    columns = [column.conversation_id]
-  }
-
-  index "ix_messages_customer_id" {
-    columns = [column.customer_id]
+  index "ix_messages_chat_id" {
+    columns = [column.chat_id]
   }
 }

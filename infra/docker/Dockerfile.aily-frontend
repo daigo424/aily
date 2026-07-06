@@ -37,4 +37,4 @@ RUN uv export --no-dev --no-hashes -o /tmp/reqs.txt && \
 
 COPY . .
 
-CMD ["sh", "-c", "streamlit run src/apps/frontend/main.py --server.address=0.0.0.0 --server.port=${PORT:-8502}"]
+CMD ["sh", "-c", "python src/apps/frontend/main.py"]

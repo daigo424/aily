@@ -1,187 +1,227 @@
-# aily — IT Consulting Booking Bot
+# aily — Multimodal LLMOps Platform
 
-An AI-powered IT consulting reservation bot backed by Gemini and LangGraph.  
-Customers book, check availability, or cancel appointments through WhatsApp or a web chat interface.  
-Staff manage reservations through a Streamlit admin dashboard.
+An end-to-end LLMOps platform built for a personal AI schedule assistant. The application itself — a web chat that registers events and tasks from natural language and images — is intentionally simple. The engineering focus is on **self-hosting a multimodal LLM on EKS with production-grade serving, observability, evaluation, and deployment infrastructure**.
 
-## Features
+> **Stack at a glance:** Python · FastAPI · LangGraph · vLLM · KServe · EKS + Karpenter · ArgoCD + Argo Rollouts · Argo Workflows · Langfuse · MLflow · Terraform
 
-**Customer-facing**
-- WhatsApp and web chat (Streamlit) both supported
-- Extracts booking intent, date, time, and availability period using Gemini structured output
-- Availability inquiry — lists open dates in a requested month/weekday from live DB state
-- Follow-up questions when date or time is missing
-- Conflict detection — rejects double-booking within 1-hour slots
-- Cancellation flow — lists active reservations by number, lets customers confirm selection
-- All replies in the same language as the customer's message
+---
 
-**Admin dashboard (Streamlit)**
-- Reservation list with filters: pending / completed / voided / cancelled
-- Per-reservation detail: timestamps for completion, voiding, and cancellation
-- Status transitions: mark as completed or void
-- Customer conversation history viewer
+## Architecture
 
-## Conversation Graph
+```
+Browser
+  │  WebSocket (Flet)
+  ▼
+[aily-frontend]  ──────────────────────────────────────────────────┐
+                                                                    │
+[aily-api]  ──  LangGraph state machine  ──  KServe InferenceService  ──  vLLM (llama3.2-vision:11b)
+    │                                              │
+    │  OpenLLMetry auto-instrumentation            │  Prometheus metrics
+    ▼                                              ▼
+[Langfuse]  (trace / eval storage)      [kube-prometheus-stack]  →  HPA
+    │
+[MLflow]  (model registry / artifacts on S3)
+```
 
-![Booking graph](doc/graph.png)
+Image attachments are stored in S3 and served via CloudFront (OAC + SSE-KMS). Conversation state is persisted in PostgreSQL via LangGraph's `PostgresSaver` checkpointer.
 
-The conversation is managed as a LangGraph state machine persisted via PostgresSaver.
+---
+
+## LLMOps Stack
+
+### Model Serving
+
+| Component | Choice | Why |
+|---|---|---|
+| Runtime | KServe (RawDeployment) + vLLM | RawDeployment avoids Knative; KServe's `InferenceService` CRD provides a unified interface for adding STT/TTS models in a later phase without reinventing each manifest |
+| Model | `llama3.2-vision:11b` via vLLM | Multimodal (text + image); 11B in FP16 requires ~22 GB VRAM — fits comfortably on L40S (48 GB) with ~26 GB headroom for KV cache and image encoding |
+| GPU nodes | Karpenter (`g6e.xlarge`, Spot-first) | Zero GPU cost when idle; auto-provision on demand |
+| Scaling | HPA on vLLM Prometheus metrics | CPU utilization is a poor proxy for LLM load; scaling on `vllm:num_requests_waiting` and `vllm:gpu_cache_usage_factor` reacts to actual inference pressure |
+
+Karpenter disruption budgets prevent simultaneous GPU node replacement (cold-start churn) while still allowing consolidation during off-peak hours:
+
+```yaml
+disruption:
+  consolidationPolicy: WhenUnderutilized
+  budgets:
+    - nodes: "1"               # max 1 GPU node replaced at a time (24 h window)
+      schedule: "0 0 * * *"
+      duration: 24h
+    - nodes: "0"               # freeze consolidation during JST core hours (UTC 0:00–12:00)
+      schedule: "0 0 * * *"
+      duration: 12h
+  expireAfter: 720h            # force-rotate nodes every 30 days; budgets prevent mass restart
+```
+
+### Observability
+
+- **OpenLLMetry** auto-instruments every LLM call — TTFT, TPOT, token usage, cost — with no manual span creation.
+- Traces flow to **Langfuse**, which stores them alongside evaluation results for cross-version quality analysis.
+- GPU utilization is scraped via NVIDIA DCGM Exporter and fed into the same Prometheus stack.
+- MLflow model versions are tagged with the Langfuse prompt identifier, enabling version-level quality tracking.
+
+### Evaluation Pipeline
+
+Triggered manually from GitHub Actions; runs fully automated once started.
+
+```
+GitHub Actions (manual trigger, select services)
+  │
+  ├── 1. Spin up staging GPU node (Spot-first)
+  │       Deploy vLLM with the candidate model
+  │
+  ├── 2. LLM-as-a-judge scoring
+  │       Run test set (QA pairs, image+question pairs) against staging vLLM
+  │       Rule-based checks in parallel (forbidden terms, format, latency)
+  │
+  └── 3. Model registration (auto, if pass)
+          Upload weights to S3 → register version in MLflow
+          Tag with model path + Langfuse prompt ID
+          (Human reviews MLflow, manually bumps model version YAML → PR → CI → deploy)
+```
+
+Self-evaluation bias is a known limitation; the architecture keeps it explicit rather than hiding it.
+
+### Deployment
+
+Application deploys use **Argo Rollouts Blue/Green** to shift traffic only after the new pod passes health checks. Model version is baked into the Docker image at build time — the image is an immutable artifact that encodes exactly which model version and API code were tested together, making rollback a one-step image swap.
+
+```
+PR → merge-gate (Ruff lint + terraform plan)
+       ↓ merge to main
+deploy.yml  →  ECR push  →  kustomization image tag bump  →  auto-merge
+                                        ↓
+                             ArgoCD detects change  →  Argo Rollouts Blue/Green
+```
+
+Infrastructure changes (Terraform) are decoupled from application deploys and run on a separate manual workflow.
+
+---
+
+## Application
+
+The chat application is a LangGraph state machine: each message is classified by intent, routed to the appropriate node, and the extracted schedule fields are accumulated in a `schedule_draft` until complete.
+
+![Schedule graph](docs/graph.png)
 
 | Node | Trigger | Action |
 |---|---|---|
-| `llm_extraction` | Every message | Gemini extracts intent, date, time, period |
-| `handle_availability` | `ask_availability` intent | Queries DB, returns open dates for requested month/weekday |
-| `handle_booking_intent` | `book_reservation` / `update_booking_request` | Creates or updates booking request, confirms if ready |
-| `handle_cancel_intent` | `cancel_reservation` intent | Lists customer's pending reservations |
-| `handle_cancel_selection` | Numeric input during cancel flow | Cancels the selected reservation |
-| `handle_other_intent` | `smalltalk` / `unknown` | Returns LLM reply |
+| `llm_extraction` | Every message | Extracts intent and schedule fields; asks follow-up if any field is missing |
+| `handle_add_schedule` | `add_schedule` | Accumulates fields into `schedule_draft`; confirms and commits when complete |
+| `handle_list_schedule` | `list_schedule` | Returns upcoming events and tasks from DB |
+| `handle_other_intent` | `smalltalk` / `unknown` | Returns LLM reply without touching schedule data |
 
-## Reservation Statuses
+**Interfaces:**
+- **Web chat (Flet)** — server-side Python, WebSocket to browser, SSE streaming responses, multimodal image upload
+- **Admin dashboard (Streamlit)** — event and task list with status
 
-| Status | Set by | Meaning |
-|---|---|---|
-| `pending` | System | Confirmed, awaiting staff review |
-| `completed` | Admin | Consultation completed |
-| `voided` | Admin | Invalidated by staff |
-| `cancelled` | Customer | Cancelled by the customer |
+---
+
+## Infrastructure
+
+Managed by Terraform. `terraform-apply.yml` creates all AWS resources, fills K8s manifest placeholders, and bootstraps ArgoCD.
+
+| Component | Role |
+|---|---|
+| EKS 1.32 + Karpenter | Container orchestration; GPU nodes provisioned on demand |
+| KServe + vLLM | Model serving (`llama3.2-vision:11b`, multimodal) |
+| Argo Rollouts | Blue/Green deploy for `aily-api` |
+| ArgoCD | GitOps — watches `infra/k8s/` |
+| RDS Aurora PostgreSQL | Application DB + LangGraph checkpointer |
+| S3 + CloudFront (OAC) | Image attachment storage; OAC with SSE-KMS for CDN delivery |
+| kube-prometheus-stack | Metrics collection; Prometheus Adapter exposes vLLM metrics to HPA |
+| Langfuse + ClickHouse | LLM trace and evaluation storage |
+| MLflow | Model registry; artifacts stored on S3 |
+
+### Namespaces
+
+| Namespace | Workloads |
+|---|---|
+| `aily-app` | aily-api, aily-frontend |
+| `aily-ml` | vLLM InferenceService, ml-workflow, Argo Workflows |
+| `aily-infra` | ArgoCD, Argo Rollouts, kube-prometheus-stack, Langfuse, MLflow |
+| `karpenter` | Karpenter |
+
+---
 
 ## Tech Stack
 
-- **API**: FastAPI + Uvicorn
-- **Chat UI**: Streamlit (SSE streaming)
-- **Admin UI**: Streamlit
-- **LLM**: Google Gemini (`gemini-2.5-flash`)
-- **Conversation state**: LangGraph + PostgresSaver
-- **DB**: PostgreSQL 17 + pgvector
-- **Schema management**: Atlas
-- **Package management**: uv
-- **Linting / formatting**: Ruff
-- **Type checking**: mypy
+| Layer | Technology |
+|---|---|
+| API | FastAPI + Uvicorn |
+| Web chat UI | Flet 0.85 (server-side Python, WebSocket) |
+| Admin UI | Streamlit |
+| Conversation state | LangGraph + PostgresSaver |
+| LLM | OpenAI-compatible API — vLLM (EKS) / Ollama (local) |
+| Tracing | OpenLLMetry → Langfuse |
+| DB | PostgreSQL 17 + pgvector |
+| Schema management | Atlas (HCL) |
+| Image storage | S3 + CloudFront (EKS) / local filesystem (dev) |
+| IaC | Terraform |
+| GitOps | ArgoCD |
+| Deploy strategy | Argo Rollouts (Blue/Green) |
+| Evaluation pipeline | Argo Workflows |
+| Model registry | MLflow + S3 |
+| CI | GitHub Actions (7 workflows) |
+| Package management | uv |
+| Linting / formatting | Ruff |
+| Type checking | mypy |
 
-## Project Structure
+---
 
-```
-src/
-├── apps/
-│   ├── api/                  # FastAPI
-│   │   ├── main.py           # App setup, lifespan, router registration
-│   │   ├── common.py         # Shared helpers (normalize_message)
-│   │   └── routers/
-│   │       ├── webhook.py    # GET/POST /webhook (WhatsApp)
-│   │       └── chat.py       # POST /chat (SSE streaming)
-│   ├── admin/                # Admin dashboard (Streamlit, port 8501)
-│   └── chat/                 # Web chat UI (Streamlit, port 8502)
-└── packages/core/
-    ├── config/               # Settings (pydantic-settings)
-    ├── constants.py          # ReservationStatus, BookingRequestStatus, ConversationIntent
-    ├── db/
-    │   ├── models/           # SQLAlchemy ORM models
-    │   └── repositories/     # DB access layer
-    ├── graph/                # LangGraph definition
-    │   ├── graph.py          # Graph builder and routing
-    │   ├── nodes.py          # Node functions
-    │   └── state.py          # BookingState TypedDict
-    ├── infrastructure/
-    │   ├── chatapp/          # WhatsApp Cloud API client
-    │   └── llm/              # Gemini client
-    ├── schemas/              # Pydantic schemas (BookingExtraction)
-    └── usecases/             # Booking extraction (LLM prompt + parsing)
-db/
-└── app/schema/               # Atlas HCL schema definitions
-scripts/
-└── draw_graph.py             # Generate doc/graph.png
-```
+## Local Development
 
-## Prerequisites
+### Prerequisites
 
 - Docker / Docker Compose
 - [uv](https://github.com/astral-sh/uv)
 - [Atlas CLI](https://atlasgo.io)
-- Meta WhatsApp Cloud API credentials
-- Gemini API key
-- Public URL (ngrok or Cloudflare Tunnel) — WhatsApp only
+- An OpenAI-compatible LLM (Ollama locally, vLLM on EKS, or a cloud provider)
 
-## Setup
-
-### 1. Configure environment
+### Setup
 
 ```bash
 cp .env.example .env
+# Set LLM_BASE_URL, LLM_MODEL, DB_* and optionally Langfuse keys
+make up            # Start all services
+make atlas-apply   # Apply DB schema
+make vllm-start    # Start local Ollama model (optional)
 ```
 
-Edit `.env` with your credentials:
-
-| Variable | Description |
+| Service | Port |
 |---|---|
-| `API_BASE_URL` | Your public URL (e.g. ngrok URL) |
-| `LOCAL_PUBLISH_DOMAIN` | Domain only, without `https://` |
-| `VERIFY_TOKEN` | Arbitrary token for WhatsApp webhook verification |
-| `WHATSAPP_TOKEN` | WhatsApp Cloud API token |
-| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp phone number ID |
-| `WHATSAPP_GRAPH_API_VERSION` | e.g. `v24.0` |
-| `GEMINI_API_KEY` | Google Gemini API key |
-| `GEMINI_MODEL` | e.g. `gemini-2.5-flash` |
-| `TIMEZONE` | e.g. `Asia/Tokyo` |
-
-### 2. Start services
+| FastAPI | 8000 |
+| Streamlit admin | 8501 |
+| Flet web chat | 8502 |
+| PostgreSQL | 5432 |
+| MLflow | 5000 |
 
 ```bash
-make up
+make all-check   # format + lint-fix + typecheck + test
+make draw-graph  # Regenerate docs/graph.png
 ```
 
-| Service | Port | Description |
+### EKS access helpers
+
+```bash
+make kubeconfig       # Configure kubectl
+make argocd-ui        # Port-forward ArgoCD    → localhost:18080
+make monitoring-ui    # Port-forward Grafana    → localhost:13000
+make mlflow-ui        # Port-forward MLflow     → localhost:15000
+make langfuse-ui      # Port-forward Langfuse   → localhost:13001
+make frontend-ui      # Port-forward frontend   → localhost:8502
+```
+
+---
+
+## CI / CD
+
+| Workflow | Trigger | What it does |
 |---|---|---|
-| `api` | 8000 | FastAPI (WhatsApp webhook + chat API) |
-| `admin` | 8501 | Admin dashboard |
-| `chat` | 8502 | Web chat UI |
-| `db` | 5432 | PostgreSQL + pgvector |
-
-### 3. Apply database schema
-
-```bash
-make atlas-apply
-```
-
-### 4. Expose the local server (WhatsApp only)
-
-```bash
-make publish
-```
-
-Uses ngrok with the domain configured in `LOCAL_PUBLISH_DOMAIN`.
-
-### 5. Configure the WhatsApp webhook
-
-In the Meta Developer Console:
-
-- **Callback URL**: `https://<your-domain>/webhook`
-- **Verify Token**: value of `VERIFY_TOKEN` in `.env`
-- **Subscribe fields**: `messages`
-
-## Development
-
-```bash
-make all-check     # format + lint + typecheck + test
-
-make format        # Ruff format
-make lint          # Ruff lint
-make typecheck     # mypy
-make test          # pytest
-
-make draw-graph    # Regenerate doc/graph.png
-```
-
-## Database Tables
-
-| Table | Description |
-|---|---|
-| `customers` | Phone number (or chat session ID) and name |
-| `conversations` | Per-customer chat session; `active_flow` tracks current flow state |
-| `conversation_flow_cancel_items` | Reservations presented during an active cancel flow |
-| `messages` | All inbound and outbound messages with raw LLM output |
-| `booking_requests` | Booking info being collected (`collecting` → `ready` → `confirmed`) |
-| `reservations` | Confirmed reservations with full status lifecycle |
-
-## CI
-
-`.github/workflows/ci.yml` runs lint, format check, and typecheck on every PR.
+| `merge-gate.yml` | PR → main | Path-filtered gate: runs `ci` for `src/**` changes, `terraform-plan` for `infra/terraform/**` changes |
+| `ci.yml` | Called by merge-gate | Ruff lint + format check (reusable) |
+| `terraform-plan.yml` | Called by merge-gate / manual | `fmt` + `validate` + `plan` for test and prod in parallel; posts diff as PR comment |
+| `deploy.yml` | Manual | Builds selected images (aily-api / aily-frontend / mlflow), pushes to ECR, bumps kustomization image tags, auto-merges PR |
+| `terraform-apply.yml` | Manual | `terraform apply` → fills K8s placeholders → bootstraps ArgoCD → creates RDS DBs and K8s secrets |
+| `destroy.yml` | Manual (test only) | Drains EKS, cleans up K8s-created AWS resources (ALB, ENI, etc.), then `terraform destroy` |
+| `eks-orphan-cleanup.yml` | Manual | Audits orphaned AWS resources from EKS/Karpenter/LBC (EBS, EC2, ALB, SG, ENI, CW log groups, etc.) and prints delete commands |

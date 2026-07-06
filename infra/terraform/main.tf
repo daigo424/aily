@@ -5,7 +5,6 @@ module "ml_data" {
   github_repo = "daigo424/aily"
 }
 
-
 module "network" {
   count = local.is_test ? 1 : 0
 
