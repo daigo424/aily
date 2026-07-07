@@ -121,18 +121,23 @@ def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
     print("   W8A8量子化中（数十分〜1時間程度かかります）...")
     # Gemma 3 (VLM) 専用設定:
     #   - vision_tower / multi_modal_projector / embed_tokens は量子化対象外
-    #   - sequential_targets で1層ずつ処理してVRAMを節約
+    #   - sequential_targets は oneshot() に渡す（GPTQModifier のフィールドではない）
     recipe = [
         GPTQModifier(
             targets="Linear",
             scheme="W8A8",
             ignore=["re:.*lm_head.*", "re:.*embed_tokens.*", "re:vision_tower.*", "re:multi_modal_projector.*"],
-            sequential_update=True,
-            sequential_targets=["Gemma3DecoderLayer"],
             dampening_frac=0.01,
         ),
     ]
-    oneshot(model=model, dataset=ds, recipe=recipe, max_seq_length=MAX_SEQUENCE_LENGTH, num_calibration_samples=NUM_CALIBRATION_SAMPLES)
+    oneshot(
+        model=model,
+        dataset=ds,
+        recipe=recipe,
+        max_seq_length=MAX_SEQUENCE_LENGTH,
+        num_calibration_samples=NUM_CALIBRATION_SAMPLES,
+        sequential_targets=["Gemma3DecoderLayer"],
+    )
 
     print(f"   量子化済みモデルを保存中: {quant_dir}")
     model.save_pretrained(quant_dir, save_compressed=True)
