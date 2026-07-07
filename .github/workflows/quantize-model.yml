@@ -179,7 +179,13 @@ jobs:
             conda activate "${ENV:-base}"
           fi
 
-          pip install llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
+          # GPU ドライバー確認（失敗時は即終了してログに原因を残す）
+          nvidia-smi || { echo "ERROR: nvidia-smi failed — GPU driver not ready"; exit 1; }
+
+          # DL AMI 付属の torch を再ダウンロードさせないようバージョンを固定
+          TORCH_VER=$(python -c "import torch; print(torch.__version__)")
+          echo "Pinning torch==$TORCH_VER"
+          pip install "torch==$TORCH_VER" llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
