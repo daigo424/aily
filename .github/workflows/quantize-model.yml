@@ -1,0 +1,228 @@
+name: Quantize and Upload Model to S3
+
+# 前提条件:
+#   GitHub Variables: AWS_REGION, ML_DATA_BUCKET, QUANTIZE_INSTANCE_PROFILE
+#     QUANTIZE_INSTANCE_PROFILE: SSM (AmazonSSMManagedInstanceCore) +
+#                                S3 PutObject/ListBucket/KMS権限を持つIAM instance profile名
+#   GitHub Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, HF_TOKEN
+
+on:
+  workflow_dispatch:
+    inputs:
+      hf_model_id:
+        description: 'HuggingFace model ID'
+        required: true
+        default: 'google/gemma-3-12b-it'
+      quantize:
+        description: '量子化フォーマット'
+        required: true
+        type: choice
+        options: [awq, int8, int4]
+        default: 'awq'
+      instance_type:
+        description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 24GB推奨)'
+        required: true
+        default: 'g5.xlarge'
+      use_spot:
+        description: 'Spot instance を使用する（安価だが中断リスクあり）'
+        type: boolean
+        default: false
+
+jobs:
+  quantize-and-upload:
+    runs-on: ubuntu-latest
+    env:
+      INSTANCE_ID: ''
+      SG_ID: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ── 1. Deep Learning AMI を動的に取得 ──────────────────────────────────
+      - name: Find latest Deep Learning AMI
+        id: find-ami
+        run: |
+          AMI_ID=$(aws ec2 describe-images \
+            --owners amazon \
+            --filters \
+              "Name=name,Values=Deep Learning OSS Nvidia Driver AMI GPU PyTorch*Ubuntu*" \
+              "Name=architecture,Values=x86_64" \
+              "Name=state,Values=available" \
+            --query "sort_by(Images, &CreationDate)[-1].ImageId" \
+            --output text)
+          echo "ami_id=$AMI_ID" >> "$GITHUB_OUTPUT"
+          echo "Using AMI: $AMI_ID"
+
+      # ── 2. 一時セキュリティグループ作成（インバウンド不要・SSMのみ）────────
+      - name: Create security group
+        id: create-sg
+        run: |
+          SG_ID=$(aws ec2 create-security-group \
+            --group-name "quantize-${{ github.run_id }}" \
+            --description "Temp SG for quantize run ${{ github.run_id }}" \
+            --query GroupId --output text)
+          echo "sg_id=$SG_ID" >> "$GITHUB_OUTPUT"
+          echo "Created SG: $SG_ID"
+
+      # ── 3. EC2 起動 ────────────────────────────────────────────────────────
+      - name: Launch EC2 instance
+        id: launch-ec2
+        run: |
+          MARKET_OPTIONS=''
+          if [ '${{ inputs.use_spot }}' = 'true' ]; then
+            MARKET_OPTIONS='--instance-market-options MarketType=spot'
+          fi
+
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ${{ steps.find-ami.outputs.ami_id }} \
+            --instance-type ${{ inputs.instance_type }} \
+            --iam-instance-profile Name=${{ vars.QUANTIZE_INSTANCE_PROFILE }} \
+            --security-group-ids ${{ steps.create-sg.outputs.sg_id }} \
+            --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":150,"VolumeType":"gp3"}}]' \
+            --tag-specifications \
+              "ResourceType=instance,Tags=[{Key=Name,Value=quantize-${{ github.run_id }}},{Key=GithubRunId,Value=${{ github.run_id }}}]" \
+            $MARKET_OPTIONS \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "Launched: $INSTANCE_ID"
+
+      - name: Wait for instance running
+        run: |
+          aws ec2 wait instance-running \
+            --instance-ids ${{ steps.launch-ec2.outputs.instance_id }}
+
+      # ── 4. SSM エージェントの起動を待つ ───────────────────────────────────
+      - name: Wait for SSM agent
+        run: |
+          INSTANCE_ID=${{ steps.launch-ec2.outputs.instance_id }}
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo "None")
+            echo "SSM status: $STATUS ($i/30)"
+            if [ "$STATUS" = "Online" ]; then
+              echo "SSM ready"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "Timeout waiting for SSM"
+          exit 1
+
+      # ── 5. スクリプトを S3 経由でインスタンスに渡す ───────────────────────
+      - name: Upload quantize script to S3
+        run: |
+          aws s3 cp scripts/hf_to_s3.py \
+            s3://${{ vars.ML_DATA_BUCKET }}/tmp/quantize-${{ github.run_id }}/hf_to_s3.py
+
+      # ── 6. 量子化 & S3 アップロード（SSM経由） ────────────────────────────
+      - name: Run quantization via SSM
+        id: run-quantize
+        run: |
+          # SSMに渡すシェルスクリプトを生成
+          SCRIPT=$(cat <<'ENDSCRIPT'
+          set -e
+          pip install autoawq bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
+
+          aws s3 cp s3://ML_DATA_BUCKET/tmp/GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
+
+          export HF_TOKEN=HF_TOKEN_VALUE
+          export HF_MODEL_ID=HF_MODEL_ID_VALUE
+          export ML_DATA_BUCKET=ML_DATA_BUCKET
+          export QUANTIZE=QUANTIZE_VALUE
+
+          python /tmp/hf_to_s3.py
+          ENDSCRIPT
+          )
+
+          # プレースホルダーを置換
+          SCRIPT="${SCRIPT//ML_DATA_BUCKET/${{ vars.ML_DATA_BUCKET }}}"
+          SCRIPT="${SCRIPT//GITHUB_RUN_ID/${{ github.run_id }}}"
+          SCRIPT="${SCRIPT//HF_TOKEN_VALUE/${{ secrets.HF_TOKEN }}}"
+          SCRIPT="${SCRIPT//HF_MODEL_ID_VALUE/${{ inputs.hf_model_id }}}"
+          SCRIPT="${SCRIPT//QUANTIZE_VALUE/${{ inputs.quantize }}}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ steps.launch-ec2.outputs.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[\"$SCRIPT\"]" \
+            --timeout-seconds 18000 \
+            --comment "Quantize ${{ inputs.hf_model_id }} as ${{ inputs.quantize }}" \
+            --query "Command.CommandId" \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "SSM command: $COMMAND_ID"
+
+      # ── 7. 完了まで待機（最大5時間）────────────────────────────────────────
+      - name: Wait for quantization to complete
+        run: |
+          COMMAND_ID=${{ steps.run-quantize.outputs.command_id }}
+          INSTANCE_ID=${{ steps.launch-ec2.outputs.instance_id }}
+
+          for i in $(seq 1 150); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "[$i/150] $STATUS"
+
+            case "$STATUS" in
+              Success)
+                echo "=== 完了 ==="
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query "StandardOutputContent" --output text
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut)
+                echo "=== 失敗: $STATUS ==="
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query "StandardErrorContent" --output text
+                exit 1
+                ;;
+            esac
+            sleep 120
+          done
+          echo "Timeout"
+          exit 1
+
+      # ── 8. クリーンアップ（失敗時も必ず実行）─────────────────────────────
+      - name: Cleanup - terminate EC2
+        if: always()
+        run: |
+          INSTANCE_ID=${{ steps.launch-ec2.outputs.instance_id }}
+          if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "" ]; then
+            aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
+            aws ec2 wait instance-terminated --instance-ids "$INSTANCE_ID" || true
+            echo "Terminated: $INSTANCE_ID"
+          fi
+
+      - name: Cleanup - delete security group
+        if: always()
+        run: |
+          SG_ID=${{ steps.create-sg.outputs.sg_id }}
+          if [ -n "$SG_ID" ]; then
+            # インスタンス削除後に少し待つ（ENIのデタッチを待つ）
+            sleep 15
+            aws ec2 delete-security-group --group-id "$SG_ID" || true
+            echo "Deleted SG: $SG_ID"
+          fi
+
+      - name: Cleanup - delete temp script from S3
+        if: always()
+        run: |
+          aws s3 rm \
+            s3://${{ vars.ML_DATA_BUCKET }}/tmp/quantize-${{ github.run_id }}/ \
+            --recursive || true
