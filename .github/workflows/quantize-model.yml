@@ -168,6 +168,15 @@ jobs:
           BUCKET=${{ steps.resolve.outputs.bucket }}
           SCRIPT=$(cat <<'ENDSCRIPT'
           set -e
+          # PyTorch 2.6+ は venv、旧版は conda — 両方に対応
+          if [ -f /opt/pytorch/bin/activate ]; then
+            source /opt/pytorch/bin/activate
+          elif [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+            source /opt/conda/etc/profile.d/conda.sh
+            ENV=$(conda env list | grep -E '^pytorch' | awk 'NR==1{print $1}')
+            conda activate "${ENV:-base}"
+          fi
+
           pip install autoawq bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
@@ -187,10 +196,13 @@ jobs:
           SCRIPT="${SCRIPT//HF_MODEL_ID_VALUE/${{ inputs.hf_model_id }}}"
           SCRIPT="${SCRIPT//QUANTIZE_VALUE/${{ inputs.quantize }}}"
 
+          # jq で改行をエスケープして有効な JSON を生成
+          PARAMS=$(jq -cn --arg cmd "$SCRIPT" '{"commands":[$cmd],"executionTimeout":["18000"]}')
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ steps.launch-ec2.outputs.instance_id }} \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"$SCRIPT\"]" \
+            --parameters "$PARAMS" \
             --timeout-seconds 18000 \
             --comment "Quantize ${{ inputs.hf_model_id }} as ${{ inputs.quantize }}" \
             --query "Command.CommandId" \

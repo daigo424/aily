@@ -94,7 +94,9 @@ def _quantize_awq(local_dir: str, quant_dir: str) -> None:
 
     print("   AWQモデルをロード中...")
     tokenizer = AutoTokenizer.from_pretrained(local_dir)
-    model = AutoAWQForCausalLM.from_pretrained(local_dir, safetensors=True)
+    model = AutoAWQForCausalLM.from_pretrained(
+        local_dir, safetensors=True, device_map="auto", low_cpu_mem_usage=True, use_cache=False
+    )
 
     quant_config = {"zero_point": True, "q_group_size": 128, "w_bit": 4, "version": "GEMM"}
     print("   AWQ量子化中（数十分かかる場合があります）...")
