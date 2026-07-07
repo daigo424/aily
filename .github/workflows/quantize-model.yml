@@ -32,9 +32,9 @@ on:
         options: [w8a8, int8, int4]
         default: 'w8a8'
       instance_type:
-        description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 22GB / g6e.xlarge=L40S 48GB)'
+        description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 24GB 16GB RAM / g6e.xlarge=L40S 48GB 32GB RAM)'
         required: true
-        default: 'g5.xlarge'
+        default: 'g6e.xlarge'
       use_spot:
         description: 'Spot instance を使用する（安価だが中断リスクあり）'
         type: boolean
