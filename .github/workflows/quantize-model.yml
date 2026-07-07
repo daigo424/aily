@@ -185,7 +185,7 @@ jobs:
           # DL AMI 付属の torch を再ダウンロードさせないようバージョンを固定
           TORCH_VER=$(python -c "import torch; print(torch.__version__)")
           echo "Pinning torch==$TORCH_VER"
-          pip install "torch==$TORCH_VER" llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
+          pip install "torch==$TORCH_VER" "numpy>=2.1.0" llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
