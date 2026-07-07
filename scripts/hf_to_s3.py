@@ -6,8 +6,8 @@ Hugging Face モデルを S3 にアップロードするスクリプト。
   # FP16（そのままアップロード）
   HF_TOKEN=hf_xxx python scripts/hf_to_s3.py
 
-  # AWQ量子化（INT4相当・vLLM推奨）
-  HF_TOKEN=hf_xxx QUANTIZE=awq python scripts/hf_to_s3.py
+  # W8A8 INT8量子化（llm-compressor・vLLM推奨）
+  HF_TOKEN=hf_xxx QUANTIZE=w8a8 python scripts/hf_to_s3.py
 
   # INT8量子化（bitsandbytes）
   HF_TOKEN=hf_xxx QUANTIZE=int8 python scripts/hf_to_s3.py
@@ -20,13 +20,13 @@ Hugging Face モデルを S3 にアップロードするスクリプト。
   - kms:GenerateDataKey (ml_data バケットの KMS キー)
 
 量子化には torch (CUDA) が必要です。
-  AWQ:  pip install autoawq
+  W8A8: pip install llmcompressor datasets
   INT8/INT4: pip install bitsandbytes transformers
 
-S3 保存先: FP16 → models/google/gemma-3-12b-it
-           AWQ  → models/google/gemma-3-12b-it-awq
-           INT8 → models/google/gemma-3-12b-it-int8
-           INT4 → models/google/gemma-3-12b-it-int4
+S3 保存先: FP16  → models/google/gemma-3-12b-it
+           W8A8  → models/google/gemma-3-12b-it-w8a8
+           INT8  → models/google/gemma-3-12b-it-int8
+           INT4  → models/google/gemma-3-12b-it-int4
 """
 
 import os
@@ -76,34 +76,50 @@ def _quantize_and_save(local_dir: str, quant_dir: str, quantize: str) -> None:
     if not torch.cuda.is_available():
         raise SystemExit("エラー: 量子化には CUDA GPU が必要です")
 
-    if quantize == "awq":
-        _quantize_awq(local_dir, quant_dir)
+    if quantize == "w8a8":
+        _quantize_w8a8(local_dir, quant_dir)
     elif quantize in ("int8", "int4"):
         _quantize_bnb(local_dir, quant_dir, quantize)
     else:
-        raise SystemExit(f"エラー: QUANTIZE='{quantize}' は無効です（awq / int8 / int4 を指定してください）")
+        raise SystemExit(f"エラー: QUANTIZE='{quantize}' は無効です（w8a8 / int8 / int4 を指定してください）")
 
 
-def _quantize_awq(local_dir: str, quant_dir: str) -> None:
-    """AWQ量子化（INT4相当）: vLLMで --quantization awq として使用可能"""
+def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
+    """W8A8 INT8量子化（llm-compressor）: vLLMで --quantization compressed-tensors として使用可能"""
     try:
-        from awq import AutoAWQForCausalLM
+        from llmcompressor import oneshot
+        from llmcompressor.modifiers.gptq import GPTQModifier
+        from llmcompressor.modifiers.transform.smoothquant import SmoothQuantModifier
     except ImportError:
-        raise SystemExit("エラー: AWQ量子化には autoawq が必要です（pip install autoawq）")
-    from transformers import AutoTokenizer
+        raise SystemExit("エラー: W8A8量子化には llmcompressor が必要です（pip install llmcompressor datasets）")
+    from datasets import load_dataset
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    print("   AWQモデルをロード中...")
+    NUM_CALIBRATION_SAMPLES = 512
+    MAX_SEQUENCE_LENGTH = 2048
+
+    print("   モデルをロード中...")
     tokenizer = AutoTokenizer.from_pretrained(local_dir)
-    model = AutoAWQForCausalLM.from_pretrained(
-        local_dir, safetensors=True, device_map="auto", low_cpu_mem_usage=True, use_cache=False
+    model = AutoModelForCausalLM.from_pretrained(local_dir, device_map="auto", torch_dtype="auto")
+
+    print("   キャリブレーションデータを準備中...")
+    ds = load_dataset("HuggingFaceH4/ultrachat_200k", split=f"train_sft[:{NUM_CALIBRATION_SAMPLES}]")
+    ds = ds.shuffle(seed=42)
+    ds = ds.map(lambda ex: {"text": tokenizer.apply_chat_template(ex["messages"], tokenize=False)})
+    ds = ds.map(
+        lambda s: tokenizer(s["text"], padding=False, max_length=MAX_SEQUENCE_LENGTH, truncation=True, add_special_tokens=False),
+        remove_columns=ds.column_names,
     )
 
-    quant_config = {"zero_point": True, "q_group_size": 128, "w_bit": 4, "version": "GEMM"}
-    print("   AWQ量子化中（数十分かかる場合があります）...")
-    model.quantize(tokenizer, quant_config=quant_config)
+    print("   W8A8量子化中（数十分〜1時間程度かかります）...")
+    recipe = [
+        SmoothQuantModifier(smoothing_strength=0.8),
+        GPTQModifier(targets="Linear", scheme="W8A8", ignore=["lm_head"]),
+    ]
+    oneshot(model=model, dataset=ds, recipe=recipe, max_seq_length=MAX_SEQUENCE_LENGTH, num_calibration_samples=NUM_CALIBRATION_SAMPLES)
 
     print(f"   量子化済みモデルを保存中: {quant_dir}")
-    model.save_quantized(quant_dir)
+    model.save_pretrained(quant_dir, save_compressed=True)
     tokenizer.save_pretrained(quant_dir)
     print("   保存完了")
 
@@ -201,6 +217,6 @@ if __name__ == "__main__":
         raise SystemExit("エラー: HF_MODEL_ID が未設定です (例: HF_MODEL_ID=google/gemma-3-12b-it)")
     if not BUCKET_NAME:
         raise SystemExit("エラー: ML_DATA_BUCKET が未設定です")
-    if QUANTIZE and QUANTIZE not in ("awq", "int8", "int4"):
-        raise SystemExit(f"エラー: QUANTIZE='{QUANTIZE}' は無効です（awq / int8 / int4 を指定してください）")
+    if QUANTIZE and QUANTIZE not in ("w8a8", "int8", "int4"):
+        raise SystemExit(f"エラー: QUANTIZE='{QUANTIZE}' は無効です（w8a8 / int8 / int4 を指定してください）")
     download_and_upload_to_s3(HF_MODEL_ID, BUCKET_NAME, S3_PREFIX)

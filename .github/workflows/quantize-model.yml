@@ -29,8 +29,8 @@ on:
         description: '量子化フォーマット'
         required: true
         type: choice
-        options: [awq, int8, int4]
-        default: 'awq'
+        options: [w8a8, int8, int4]
+        default: 'w8a8'
       instance_type:
         description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 22GB / g6e.xlarge=L40S 48GB)'
         required: true
@@ -179,7 +179,7 @@ jobs:
             conda activate "${ENV:-base}"
           fi
 
-          pip install autoawq bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
+          pip install llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
