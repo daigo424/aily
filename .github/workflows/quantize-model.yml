@@ -186,12 +186,22 @@ jobs:
           echo "Current torch: $TORCH_VER"
 
           # llmcompressor 0.12.0 は torch<=2.12.0 を宣言しているが DL AMI は 2.12.1。
-          # --no-deps でメタデータのバージョンチェックを迂回し、依存は個別に指定する。
+          # --no-deps でメタデータのバージョンチェックを迂回し、
+          # 各依存パッケージは 0.12.0 の宣言上限に合わせてピン留めする。
           pip install llmcompressor --no-deps -q
           pip install \
-              "numpy>=2.0.0" "compressed-tensors>=0.17.1" \
-              "transformers>=5.9.0" "datasets>=4.8.4" "accelerate>=1.6.0" \
-              "auto-round>=0.10.2" loguru nvidia-ml-py pillow \
+              "numpy>=2.0.0,<=2.4.6" \
+              "compressed-tensors==0.17.1" \
+              "transformers>=5.9.0,<=5.10.1" \
+              "datasets>=4.8.4,<=5.0.0" \
+              "accelerate>=1.6.0,<=1.13.0" \
+              "auto-round>=0.10.2,<=0.13.0" \
+              "tqdm>=4.66.3,<=4.68.2" \
+              "pillow>=10.4.0,<=12.2.0" \
+              "loguru>=0.7.2,<=0.7.3" \
+              "nvidia-ml-py>=12.560.30,<=13.610.43" \
+              "pyyaml>=6.0.1,<=6.0.3" \
+              "requests>=2.32.2,<=2.34.2" \
               bitsandbytes huggingface-hub boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
