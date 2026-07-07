@@ -99,6 +99,13 @@ data "aws_iam_policy_document" "gha" {
     resources = ["*"]
   }
 
+  # インスタンスプロファイル名の動的取得（ListInstanceProfiles はリソーススコープ不可）
+  statement {
+    effect    = "Allow"
+    actions   = ["iam:ListInstanceProfiles"]
+    resources = ["*"]
+  }
+
   # EC2 インスタンスプロファイルの PassRole（quantize EC2 ロールのみ）
   statement {
     effect    = "Allow"
@@ -114,6 +121,13 @@ data "aws_iam_policy_document" "gha" {
       "ssm:GetCommandInvocation",
       "ssm:DescribeInstanceInformation",
     ]
+    resources = ["*"]
+  }
+
+  # S3 バケット名の動的取得（ListAllMyBuckets はリソーススコープ不可）
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:ListAllMyBuckets"]
     resources = ["*"]
   }
 

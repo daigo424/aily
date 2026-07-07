@@ -1,14 +1,26 @@
 name: Quantize and Upload Model to S3
 
 # 前提条件:
-#   GitHub Variables: AWS_REGION, ML_DATA_BUCKET, QUANTIZE_GHA_ROLE_ARN
-#     QUANTIZE_GHA_ROLE_ARN: terraform apply 後に以下で取得
-#       aws iam list-roles --query "Roles[?contains(RoleName,'quantize-gha')].Arn | [0]" --output text
-#   GitHub Secrets: HF_TOKEN
+#   Repository Variables:
+#     AWS_REGION
+#     TEST_AWS_ACCOUNT_ID
+#     PROD_AWS_ACCOUNT_ID
+#     WORKLOAD_NAME  (例: aily)
+#   Repository Secrets:
+#     HF_TOKEN
+#
+#   IAM ロール名は Terraform の name_prefix から自動構築されるため手動設定不要:
+#     arn:aws:iam::{account_id}:role/{WORKLOAD_NAME}-{env}-quantize-gha-role
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: '対象環境'
+        required: true
+        type: choice
+        options: [test, prod]
+        default: test
       hf_model_id:
         description: 'HuggingFace model ID'
         required: true
@@ -34,30 +46,43 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    env:
-      INSTANCE_ID: ''
-      SG_ID: ''
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve AWS account ID
+        id: account
+        run: |
+          case "${{ inputs.environment }}" in
+            prod) echo "id=${{ vars.PROD_AWS_ACCOUNT_ID }}" >> "$GITHUB_OUTPUT" ;;
+            test) echo "id=${{ vars.TEST_AWS_ACCOUNT_ID }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.QUANTIZE_GHA_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.id }}:role/${{ vars.WORKLOAD_NAME }}-${{ inputs.environment }}-quantize-gha-role
           aws-region: ${{ vars.AWS_REGION }}
 
-      # ── 1. インスタンスプロファイル名を AWS CLI で取得 ────────────────────
-      - name: Resolve instance profile name
+      # ── 1. 環境依存リソースを AWS CLI で取得 ──────────────────────────────
+      - name: Resolve environment resources
         id: resolve
+        env:
+          ENV: ${{ inputs.environment }}
         run: |
+          BUCKET=$(aws s3api list-buckets \
+            --query "Buckets[?contains(Name, '${ENV}-ml-data') && !contains(Name, '-log')].Name | [0]" \
+            --output text)
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "ML_DATA_BUCKET: $BUCKET"
+
           PROFILE=$(aws iam list-instance-profiles \
-            --query "InstanceProfiles[?contains(InstanceProfileName, 'quantize-instance-profile')].InstanceProfileName | [0]" \
+            --query "InstanceProfiles[?contains(InstanceProfileName, '${ENV}-quantize-instance-profile')].InstanceProfileName | [0]" \
             --output text)
           echo "instance_profile=$PROFILE" >> "$GITHUB_OUTPUT"
           echo "Instance profile: $PROFILE"
 
-      # ── 2. Deep Learning AMI を動的に取得 ──────────────────────────────────
+      # ── 2. Deep Learning AMI を動的に取得 ────────────────────────────────
       - name: Find latest Deep Learning AMI
         id: find-ami
         run: |
@@ -72,7 +97,7 @@ jobs:
           echo "ami_id=$AMI_ID" >> "$GITHUB_OUTPUT"
           echo "Using AMI: $AMI_ID"
 
-      # ── 2. 一時セキュリティグループ作成（インバウンド不要・SSMのみ）────────
+      # ── 3. 一時セキュリティグループ作成（インバウンド不要・SSMのみ）────────
       - name: Create security group
         id: create-sg
         run: |
@@ -83,7 +108,7 @@ jobs:
           echo "sg_id=$SG_ID" >> "$GITHUB_OUTPUT"
           echo "Created SG: $SG_ID"
 
-      # ── 3. EC2 起動 ────────────────────────────────────────────────────────
+      # ── 4. EC2 起動 ──────────────────────────────────────────────────────
       - name: Launch EC2 instance
         id: launch-ec2
         run: |
@@ -111,7 +136,7 @@ jobs:
           aws ec2 wait instance-running \
             --instance-ids ${{ steps.launch-ec2.outputs.instance_id }}
 
-      # ── 4. SSM エージェントの起動を待つ ───────────────────────────────────
+      # ── 5. SSM エージェントの起動を待つ ──────────────────────────────────
       - name: Wait for SSM agent
         run: |
           INSTANCE_ID=${{ steps.launch-ec2.outputs.instance_id }}
@@ -130,34 +155,33 @@ jobs:
           echo "Timeout waiting for SSM"
           exit 1
 
-      # ── 5. スクリプトを S3 経由でインスタンスに渡す ───────────────────────
+      # ── 6. スクリプトを S3 経由でインスタンスに渡す ──────────────────────
       - name: Upload quantize script to S3
         run: |
           aws s3 cp scripts/hf_to_s3.py \
-            s3://${{ vars.ML_DATA_BUCKET }}/tmp/quantize-${{ github.run_id }}/hf_to_s3.py
+            s3://${{ steps.resolve.outputs.bucket }}/tmp/quantize-${{ github.run_id }}/hf_to_s3.py
 
-      # ── 6. 量子化 & S3 アップロード（SSM経由） ────────────────────────────
+      # ── 7. 量子化 & S3 アップロード（SSM経由）───────────────────────────
       - name: Run quantization via SSM
         id: run-quantize
         run: |
-          # SSMに渡すシェルスクリプトを生成
+          BUCKET=${{ steps.resolve.outputs.bucket }}
           SCRIPT=$(cat <<'ENDSCRIPT'
           set -e
           pip install autoawq bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
-          aws s3 cp s3://ML_DATA_BUCKET/tmp/GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
+          aws s3 cp s3://BUCKET_NAME/tmp/GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
           export HF_TOKEN=HF_TOKEN_VALUE
           export HF_MODEL_ID=HF_MODEL_ID_VALUE
-          export ML_DATA_BUCKET=ML_DATA_BUCKET
+          export ML_DATA_BUCKET=BUCKET_NAME
           export QUANTIZE=QUANTIZE_VALUE
 
           python /tmp/hf_to_s3.py
           ENDSCRIPT
           )
 
-          # プレースホルダーを置換
-          SCRIPT="${SCRIPT//ML_DATA_BUCKET/${{ vars.ML_DATA_BUCKET }}}"
+          SCRIPT="${SCRIPT//BUCKET_NAME/$BUCKET}"
           SCRIPT="${SCRIPT//GITHUB_RUN_ID/${{ github.run_id }}}"
           SCRIPT="${SCRIPT//HF_TOKEN_VALUE/${{ secrets.HF_TOKEN }}}"
           SCRIPT="${SCRIPT//HF_MODEL_ID_VALUE/${{ inputs.hf_model_id }}}"
@@ -174,7 +198,7 @@ jobs:
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
           echo "SSM command: $COMMAND_ID"
 
-      # ── 7. 完了まで待機（最大5時間）────────────────────────────────────────
+      # ── 8. 完了まで待機（最大5時間）─────────────────────────────────────
       - name: Wait for quantization to complete
         run: |
           COMMAND_ID=${{ steps.run-quantize.outputs.command_id }}
@@ -210,12 +234,12 @@ jobs:
           echo "Timeout"
           exit 1
 
-      # ── 8. クリーンアップ（失敗時も必ず実行）─────────────────────────────
+      # ── 9. クリーンアップ（失敗時も必ず実行）────────────────────────────
       - name: Cleanup - terminate EC2
         if: always()
         run: |
           INSTANCE_ID=${{ steps.launch-ec2.outputs.instance_id }}
-          if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "" ]; then
+          if [ -n "$INSTANCE_ID" ]; then
             aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
             aws ec2 wait instance-terminated --instance-ids "$INSTANCE_ID" || true
             echo "Terminated: $INSTANCE_ID"
@@ -226,7 +250,6 @@ jobs:
         run: |
           SG_ID=${{ steps.create-sg.outputs.sg_id }}
           if [ -n "$SG_ID" ]; then
-            # インスタンス削除後に少し待つ（ENIのデタッチを待つ）
             sleep 15
             aws ec2 delete-security-group --group-id "$SG_ID" || true
             echo "Deleted SG: $SG_ID"
@@ -235,6 +258,7 @@ jobs:
       - name: Cleanup - delete temp script from S3
         if: always()
         run: |
-          aws s3 rm \
-            s3://${{ vars.ML_DATA_BUCKET }}/tmp/quantize-${{ github.run_id }}/ \
-            --recursive || true
+          BUCKET=${{ steps.resolve.outputs.bucket }}
+          if [ -n "$BUCKET" ]; then
+            aws s3 rm s3://${BUCKET}/tmp/quantize-${{ github.run_id }}/ --recursive || true
+          fi
