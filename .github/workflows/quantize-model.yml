@@ -182,10 +182,17 @@ jobs:
           # GPU ドライバー確認（失敗時は即終了してログに原因を残す）
           nvidia-smi || { echo "ERROR: nvidia-smi failed — GPU driver not ready"; exit 1; }
 
-          # DL AMI 付属の torch を再ダウンロードさせないようバージョンを固定
           TORCH_VER=$(python -c "import torch; print(torch.__version__)")
-          echo "Pinning torch==$TORCH_VER"
-          pip install "torch==$TORCH_VER" "numpy>=2.1.0" llmcompressor datasets bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
+          echo "Current torch: $TORCH_VER"
+
+          # llmcompressor 0.12.0 は torch<=2.12.0 を宣言しているが DL AMI は 2.12.1。
+          # --no-deps でメタデータのバージョンチェックを迂回し、依存は個別に指定する。
+          pip install llmcompressor --no-deps -q
+          pip install \
+              "numpy>=2.0.0" "compressed-tensors>=0.17.1" \
+              "transformers>=5.9.0" "datasets>=4.8.4" "accelerate>=1.6.0" \
+              "auto-round>=0.10.2" loguru nvidia-ml-py pillow \
+              bitsandbytes huggingface-hub boto3 -q
 
           aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
