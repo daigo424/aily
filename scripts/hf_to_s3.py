@@ -103,8 +103,11 @@ def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
     model = AutoModelForCausalLM.from_pretrained(local_dir, device_map="auto", torch_dtype="auto")
 
     print("   キャリブレーションデータを準備中...")
-    ds = load_dataset("HuggingFaceH4/ultrachat_200k", split=f"train_sft[:{NUM_CALIBRATION_SAMPLES}]")
-    ds = ds.shuffle(seed=42)
+    # streaming=True で必要な512サンプルだけ取得（全スプリット480k+のDLを回避）
+    raw_iter = load_dataset("HuggingFaceH4/ultrachat_200k", split="train_sft", streaming=True)
+    raw_iter = raw_iter.shuffle(seed=42, buffer_size=10_000)
+    from datasets import Dataset
+    ds = Dataset.from_list(list(raw_iter.take(NUM_CALIBRATION_SAMPLES)))
     ds = ds.map(lambda ex: {"text": tokenizer.apply_chat_template(ex["messages"], tokenize=False)})
     ds = ds.map(
         lambda s: tokenizer(s["text"], padding=False, max_length=MAX_SEQUENCE_LENGTH, truncation=True, add_special_tokens=False),
