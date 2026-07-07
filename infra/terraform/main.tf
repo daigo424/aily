@@ -5,6 +5,15 @@ module "ml_data" {
   github_repo = "daigo424/aily"
 }
 
+module "quantize" {
+  source = "./modules/quantize"
+
+  name_prefix        = local.name_prefix
+  github_repo        = "daigo424/aily"
+  ml_data_bucket_arn = module.ml_data.bucket_arn
+  kms_key_arn        = module.ml_data.kms_key_arn
+}
+
 module "network" {
   count = local.is_test ? 1 : 0
 
