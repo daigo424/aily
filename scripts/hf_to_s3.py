@@ -42,7 +42,7 @@ from tqdm import tqdm
 # ※ LLM_MODEL (GitHub Variable) にも同じ値を設定すること
 HF_MODEL_ID = os.environ.get("HF_MODEL_ID", "").strip()
 BUCKET_NAME = os.environ.get("ML_DATA_BUCKET", "").strip()
-QUANTIZE = os.environ.get("QUANTIZE", "").strip().lower()  # "" / "int8" / "int4"
+QUANTIZE = os.environ.get("QUANTIZE", "").strip().lower()  # "" / "w8a8" / "int8" / "int4"
 CLEANUP_LOCAL = True  # アップロード後にローカルの一時ファイルを削除するか
 
 # S3 保存先: 量子化ありの場合はサフィックスで区別
@@ -85,17 +85,21 @@ def _quantize_and_save(local_dir: str, quant_dir: str, quantize: str) -> None:
 
 
 def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
-    """W8A8 INT8量子化（llm-compressor）: vLLMで --quantization compressed-tensors として使用可能"""
+    """W8A8 INT8量子化（llm-compressor）: vLLMで --quantization compressed-tensors として使用可能
+
+    SmoothQuantModifier は Gemma 3 のマルチモーダル構造（model.language_model.layers.*）に
+    対して自動マッピング推論が失敗するため使用しない。
+    RedHatAI/gemma-3-12b-it-quantized.w8a8 の公式レシピに準拠。
+    """
     try:
         from llmcompressor import oneshot
-        from llmcompressor.modifiers.gptq import GPTQModifier
-        from llmcompressor.modifiers.transform.smoothquant import SmoothQuantModifier
+        from llmcompressor.modifiers.quantization import GPTQModifier
     except ImportError:
         raise SystemExit("エラー: W8A8量子化には llmcompressor が必要です（pip install llmcompressor datasets）")
     from datasets import load_dataset
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    NUM_CALIBRATION_SAMPLES = 512
+    NUM_CALIBRATION_SAMPLES = 1024
     MAX_SEQUENCE_LENGTH = 2048
 
     print("   モデルをロード中...")
@@ -103,7 +107,7 @@ def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
     model = AutoModelForCausalLM.from_pretrained(local_dir, device_map="auto", torch_dtype="auto")
 
     print("   キャリブレーションデータを準備中...")
-    # streaming=True で必要な512サンプルだけ取得（全スプリット480k+のDLを回避）
+    # streaming=True で必要なサンプルだけ取得（全スプリット480k+のDLを回避）
     raw_iter = load_dataset("HuggingFaceH4/ultrachat_200k", split="train_sft", streaming=True)
     raw_iter = raw_iter.shuffle(seed=42, buffer_size=10_000)
     from datasets import Dataset
@@ -115,9 +119,18 @@ def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
     )
 
     print("   W8A8量子化中（数十分〜1時間程度かかります）...")
+    # Gemma 3 (VLM) 専用設定:
+    #   - vision_tower / multi_modal_projector / embed_tokens は量子化対象外
+    #   - sequential_targets で1層ずつ処理してVRAMを節約
     recipe = [
-        SmoothQuantModifier(smoothing_strength=0.8),
-        GPTQModifier(targets="Linear", scheme="W8A8", ignore=["lm_head"]),
+        GPTQModifier(
+            targets="Linear",
+            scheme="W8A8",
+            ignore=["re:.*lm_head.*", "re:.*embed_tokens.*", "re:vision_tower.*", "re:multi_modal_projector.*"],
+            sequential_update=True,
+            sequential_targets=["Gemma3DecoderLayer"],
+            dampening_frac=0.01,
+        ),
     ]
     oneshot(model=model, dataset=ds, recipe=recipe, max_seq_length=MAX_SEQUENCE_LENGTH, num_calibration_samples=NUM_CALIBRATION_SAMPLES)
 
