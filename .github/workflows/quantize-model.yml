@@ -181,7 +181,7 @@ jobs:
 
           pip install autoawq bitsandbytes transformers accelerate huggingface-hub tqdm boto3 -q
 
-          aws s3 cp s3://BUCKET_NAME/tmp/GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
+          aws s3 cp s3://BUCKET_NAME/tmp/quantize-GITHUB_RUN_ID/hf_to_s3.py /tmp/hf_to_s3.py
 
           export HF_TOKEN=HF_TOKEN_VALUE
           export HF_MODEL_ID=HF_MODEL_ID_VALUE
