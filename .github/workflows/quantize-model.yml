@@ -1,10 +1,10 @@
 name: Quantize and Upload Model to S3
 
 # 前提条件:
-#   GitHub Variables: AWS_REGION, ML_DATA_BUCKET, QUANTIZE_INSTANCE_PROFILE
-#     QUANTIZE_INSTANCE_PROFILE: SSM (AmazonSSMManagedInstanceCore) +
-#                                S3 PutObject/ListBucket/KMS権限を持つIAM instance profile名
-#   GitHub Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, HF_TOKEN
+#   GitHub Variables: AWS_REGION, ML_DATA_BUCKET, QUANTIZE_GHA_ROLE_ARN
+#     QUANTIZE_GHA_ROLE_ARN: terraform apply 後に以下で取得
+#       aws iam list-roles --query "Roles[?contains(RoleName,'quantize-gha')].Arn | [0]" --output text
+#   GitHub Secrets: HF_TOKEN
 
 on:
   workflow_dispatch:
@@ -31,6 +31,9 @@ on:
 jobs:
   quantize-and-upload:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       INSTANCE_ID: ''
       SG_ID: ''
@@ -41,11 +44,20 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.QUANTIZE_GHA_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # ── 1. Deep Learning AMI を動的に取得 ──────────────────────────────────
+      # ── 1. インスタンスプロファイル名を AWS CLI で取得 ────────────────────
+      - name: Resolve instance profile name
+        id: resolve
+        run: |
+          PROFILE=$(aws iam list-instance-profiles \
+            --query "InstanceProfiles[?contains(InstanceProfileName, 'quantize-instance-profile')].InstanceProfileName | [0]" \
+            --output text)
+          echo "instance_profile=$PROFILE" >> "$GITHUB_OUTPUT"
+          echo "Instance profile: $PROFILE"
+
+      # ── 2. Deep Learning AMI を動的に取得 ──────────────────────────────────
       - name: Find latest Deep Learning AMI
         id: find-ami
         run: |
@@ -83,7 +95,7 @@ jobs:
           INSTANCE_ID=$(aws ec2 run-instances \
             --image-id ${{ steps.find-ami.outputs.ami_id }} \
             --instance-type ${{ inputs.instance_type }} \
-            --iam-instance-profile Name=${{ vars.QUANTIZE_INSTANCE_PROFILE }} \
+            --iam-instance-profile Name=${{ steps.resolve.outputs.instance_profile }} \
             --security-group-ids ${{ steps.create-sg.outputs.sg_id }} \
             --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":150,"VolumeType":"gp3"}}]' \
             --tag-specifications \
