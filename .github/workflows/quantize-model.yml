@@ -32,7 +32,7 @@ on:
         options: [awq, int8, int4]
         default: 'awq'
       instance_type:
-        description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 24GB推奨)'
+        description: 'EC2 instance type (GPU必須: g5.xlarge=A10G 22GB / g6e.xlarge=L40S 48GB)'
         required: true
         default: 'g5.xlarge'
       use_spot:
@@ -43,6 +43,7 @@ on:
 jobs:
   quantize-and-upload:
     runs-on: ubuntu-latest
+    timeout-minutes: 330   # 5.5h — GHAハードリミット6hの前にクリーンアップを確実に動かす
     permissions:
       id-token: write
       contents: read
@@ -167,6 +168,7 @@ jobs:
         run: |
           BUCKET=${{ steps.resolve.outputs.bucket }}
           SCRIPT=$(cat <<'ENDSCRIPT'
+          #!/bin/bash
           set -e
           # PyTorch 2.6+ は venv、旧版は conda — 両方に対応
           if [ -f /opt/pytorch/bin/activate ]; then
