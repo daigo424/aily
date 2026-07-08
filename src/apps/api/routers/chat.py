@@ -82,22 +82,40 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
                 image_mime_type=body.image_mime_type,
             )
 
+            loop = asyncio.get_running_loop()
             schedule_graph = request.app.state.schedule_graph
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                lambda: schedule_graph.invoke(
-                    initial_state,
-                    config={
-                        "configurable": {
-                            "thread_id": str(body.chat_id),
-                            "repo": repo,
-                            "chat": current_chat,
-                            "source_message": saved_message,
-                        }
-                    },
-                ),
-            )
+            graph_config = {
+                "configurable": {
+                    "thread_id": str(body.chat_id),
+                    "repo": repo,
+                    "chat": current_chat,
+                    "source_message": saved_message,
+                    "image_base64": body.image_base64,
+                    "image_mime_type": body.image_mime_type,
+                }
+            }
+            # PostgresSaver は同期のみ対応のため stream() を run_in_executor で動かし、
+            # Queue 経由でノードイベントを非同期コンテキストに渡す。
+            queue: asyncio.Queue = asyncio.Queue()
+
+            def _run_graph() -> None:
+                try:
+                    for event in schedule_graph.stream(initial_state, config=graph_config):
+                        loop.call_soon_threadsafe(queue.put_nowait, event)
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, None)
+
+            executor_future = loop.run_in_executor(None, _run_graph)
+            result: dict = {}
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                node_name = next(iter(event))
+                result.update(event[node_name])
+                if node_name == "llm_extraction" and result.get("raw_llm_result", {}).get("needs_web_search"):
+                    yield f"data: {json.dumps({'type': 'web_searching'})}\n\n"
+            await executor_future
 
             saved_message.raw_llm_result = result["raw_llm_result"]
             reply: str = result["reply"]

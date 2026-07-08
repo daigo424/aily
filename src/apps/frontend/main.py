@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import os
+import random
 from urllib.parse import quote
 
 import flet as ft
@@ -377,15 +378,28 @@ async def main(page: ft.Page) -> None:
 
     async def _pick_image(e) -> None:
         # Web mode: path is always None → use with_data=True to get file.bytes directly
+        _ALLOWED_EXTS = {"jpg", "jpeg", "png"}
+        _MIME_MAP = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}
+
         files = await file_picker.pick_files(
             allow_multiple=False,
             with_data=True,
             file_type=ft.FilePickerFileType.CUSTOM,
-            allowed_extensions=["jpg", "jpeg", "png", "webp", "gif"],
+            allowed_extensions=list(_ALLOWED_EXTS),
         )
         if not files or not files[0].bytes:
             return
         f = files[0]
+        ext = f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
+        if ext not in _ALLOWED_EXTS:
+            page.show_dialog(
+                ft.SnackBar(
+                    content=ft.Text(f"このファイル形式（.{ext}）は非対応です。JPEG または PNG を使用してください。", color="white"),
+                    bgcolor="#b91c1c",
+                    show_close_icon=True,
+                )
+            )
+            return
         if len(f.bytes) > _MAX_IMAGE_BYTES:
             page.show_dialog(
                 ft.SnackBar(
@@ -396,8 +410,7 @@ async def main(page: ft.Page) -> None:
             )
             return
         b64 = base64.b64encode(f.bytes).decode()
-        ext = f.name.rsplit(".", 1)[-1].lower()
-        mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}.get(ext, "image/jpeg")
+        mime = _MIME_MAP[ext]
         pending_image[0] = {"base64": b64, "mime_type": mime}
 
         data_url = f"data:{mime};base64,{b64}"
@@ -586,7 +599,25 @@ async def main(page: ft.Page) -> None:
                         if raw == "[DONE]":
                             break
                         parsed = json.loads(raw)
-                        if isinstance(parsed, dict) and parsed.get("type") == "title_update":
+                        if isinstance(parsed, dict) and parsed.get("type") == "web_searching":
+                            _SEA_CREATURES = ["🐠", "🐡", "🐟", "🦈", "🐙", "🦑", "🦐", "🦞", "🦀", "🐚", "🐬", "🐳", "🦭", "🪸", "🐊"]
+                            sea_icon = random.choice(_SEA_CREATURES)
+                            asst_inner.content = ft.Column(
+                                [
+                                    ft.Row(
+                                        [
+                                            ft.Text(sea_icon, size=14),
+                                            ft.Text("Web Searching...", size=13, color=C_TEXT_DIM, italic=True),
+                                        ],
+                                        spacing=6,
+                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    ),
+                                    ft.Row(typing_dots, spacing=7),
+                                ],
+                                spacing=8,
+                                tight=True,
+                            )
+                        elif isinstance(parsed, dict) and parsed.get("type") == "title_update":
                             new_title = parsed.get("title", "")
                             for ch in chats:
                                 if ch["id"] == parsed.get("chat_id"):
@@ -598,7 +629,7 @@ async def main(page: ft.Page) -> None:
                             chunk = parsed if isinstance(parsed, str) else ""
                             if chunk:
                                 if first_chunk:
-                                    # swap typing dots → text
+                                    # swap typing dots / search label → text
                                     stop_anim[0] = True
                                     anim_task.cancel()
                                     asst_inner.content = asst_md
@@ -671,6 +702,7 @@ async def main(page: ft.Page) -> None:
             expand=True,
         )
         input_bar.visible = True
+        page.update()
 
     async def show_chat(skip_load: bool = False) -> None:
         if not skip_load and current_chat_id[0] is not None:
@@ -847,9 +879,10 @@ async def main(page: ft.Page) -> None:
         expand=True,
     )
 
-    # FilePicker is a Service in Flet 0.85 — it auto-registers via
-    # context.page._services; adding it to page.overlay would render it as
-    # a visible control and cause "Unknown control: FilePicker".
+    # FilePicker は Flet 0.85 の Service コントロール。page.services に登録しないと
+    # pick_files() の invoke method listener がタイムアウトする。
+    # overlay への追加は "Unknown control: FilePicker" エラーになるため不可。
+    page.services.append(file_picker)
 
     page.add(
         ft.Row(
@@ -867,6 +900,20 @@ async def main(page: ft.Page) -> None:
     await refresh_chats()
     await show_top()
     page.update()
+
+    # API が起動中にセッションが開始された場合、初回取得が失敗しチャット一覧が空になる。
+    # バックグラウンドでリトライして表示を補完する。
+    if not chats:
+
+        async def _retry_chats() -> None:
+            for _ in range(8):
+                await asyncio.sleep(2)
+                await refresh_chats()
+                if chats:
+                    page.update()
+                    break
+
+        asyncio.create_task(_retry_chats())
 
 
 if __name__ == "__main__":

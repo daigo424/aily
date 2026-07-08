@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+data:
+  settings.yml: |
+    use_default_settings: true
+    search:
+      formats:
+        - html
+        - json
+    server:
+      secret_key: "aily-cluster-internal-only"
+      limiter: false
+      image_proxy: false
+      method: GET
+
+    botdetection:
+      ip_limit:
+        enabled: false
+      ip_lists:
+        enabled: false
+
+    engines:
+      - name: startpage
+        disabled: true
+      - name: brave
+        disabled: true

@@ -81,6 +81,14 @@ services:
     ports:
       - "5000:5000"
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8080:8080"
+
   db:
     image: pgvector/pgvector:pg17
     container_name: pgvector_db

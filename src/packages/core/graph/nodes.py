@@ -11,7 +11,8 @@ from packages.core.config import settings
 from packages.core.constants import ConversationIntent, ScheduleDraftStatus
 from packages.core.db.models import Chat, Message
 from packages.core.db.repositories import Repository
-from packages.core.usecases import extract_schedule
+from packages.core.infrastructure import llm
+from packages.core.usecases import extract_schedule, web_search
 
 from .state import ScheduleState
 
@@ -57,14 +58,18 @@ def llm_extraction_node(state: ScheduleState, config: RunnableConfig) -> dict:
     if not text_body:
         return {"raw_llm_result": {}, "intent": ConversationIntent.UNKNOWN}
 
+    cfg = config.get("configurable", {})
+    image_base64 = cfg.get("image_base64") or state.get("image_base64")
+    image_mime_type = cfg.get("image_mime_type") or state.get("image_mime_type")
+
     all_prior = state.get("messages", [])[:-1]
     prior_messages = [m for m in all_prior if _is_recent(m)][-20:]
 
     raw_llm_result = extract_schedule.execute(
         text_body,
         history=prior_messages,
-        image_base64=state.get("image_base64"),
-        image_mime_type=state.get("image_mime_type"),
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
     )
     intent = raw_llm_result.get("intent", ConversationIntent.UNKNOWN)
 
@@ -141,10 +146,59 @@ def handle_list_schedule_node(state: ScheduleState, config: RunnableConfig) -> d
 
 
 # ---------------------------------------------------------------------------
-# Node: other intents (smalltalk, unknown)
+# Node: smalltalk / unknown — gen_text で返答を別途生成（gen_json と分離）
 # ---------------------------------------------------------------------------
 
 
+def _to_api_messages(messages: list[BaseMessage]) -> list[dict]:
+    result = []
+    for msg in messages:
+        if hasattr(msg, "type"):
+            if msg.type == "human":
+                result.append({"role": "user", "content": msg.content})
+            elif msg.type == "ai":
+                result.append({"role": "assistant", "content": msg.content})
+    return result
+
+
 def handle_other_intent_node(state: ScheduleState, config: RunnableConfig) -> dict:
-    reply = state["raw_llm_result"].get("reply") or "..."
+    cfg = config.get("configurable", {})
+    image_base64 = cfg.get("image_base64") or state.get("image_base64")
+    image_mime_type = cfg.get("image_mime_type") or state.get("image_mime_type")
+    all_prior = state.get("messages", [])[:-1]
+    prior_messages = [m for m in all_prior if _is_recent(m)][-10:]
+    if image_base64:
+        sys_prompt = "添付された画像を確認し、ユーザーのメッセージに自然に答えてください。返答はユーザーのメッセージと同じ言語で書いてください。"
+    else:
+        sys_prompt = "ユーザーのメッセージに自然に答えてください。返答はユーザーのメッセージと同じ言語で書いてください。"
+    reply = llm.client.gen_text(
+        prompt=state["text_body"] or "",
+        system_prompt=sys_prompt,
+        history=_to_api_messages(prior_messages),
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
+    return {"reply": reply, "messages": [_ai_message(reply)]}
+
+
+# ---------------------------------------------------------------------------
+# Node: unknown — web search via SearXNG then LLM synthesis
+# ---------------------------------------------------------------------------
+
+
+def handle_web_search_node(state: ScheduleState, config: RunnableConfig) -> dict:
+    cfg = config.get("configurable", {})
+    image_base64 = cfg.get("image_base64") or state.get("image_base64")
+    image_mime_type = cfg.get("image_mime_type") or state.get("image_mime_type")
+    query = state["text_body"] or ""
+    all_prior = state.get("messages", [])[:-1]
+    prior_messages = [m for m in all_prior if _is_recent(m)][-10:]
+
+    result = web_search.execute(
+        query,
+        history=prior_messages,
+        image_base64=image_base64,
+        image_mime_type=image_mime_type,
+    )
+    reply = result["reply"]
     return {"reply": reply, "messages": [_ai_message(reply)]}

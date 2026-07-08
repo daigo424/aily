@@ -82,13 +82,13 @@ draw-graph:
 
 # --- LLM ---
 
-vllm-start:
+llm-start:
 	ollama run $(LLM_MODEL)
 
-vllm-clear:
+llm-clear:
 	ollama rm $(LLM_MODEL)
 
-vllm-list:
+llm-list:
 	ollama list
 
 # --- AWS / EKS / ArgoCD ---
@@ -159,7 +159,7 @@ frontend-ui: check-aws-profile kubeconfig
 
 check-hf-to-s3:
 ifndef HF_MODEL_ID
-	$(error HF_MODEL_ID が未設定です。.env に HF_MODEL_ID=<hf_repo_id> を追記してください (例: HF_MODEL_ID=meta-llama/Llama-3.2-11B-Vision-Instruct))
+	$(error HF_MODEL_ID が未設定です。.env に HF_MODEL_ID=<hf_repo_id> を追記してください (例: HF_MODEL_ID=google/gemma-3-12b-it))
 endif
 ifndef ML_DATA_BUCKET
 	$(error ML_DATA_BUCKET が未設定です。.env に ML_DATA_BUCKET=<bucket_name> を追記してください)
@@ -167,6 +167,10 @@ endif
 ifndef HF_TOKEN
 	@echo "警告: HF_TOKEN が未設定です。非公開/ゲート付きモデルはダウンロードできません"
 endif
+
+install-quantize:
+	uv sync --group quantize
+	uv pip install torch --index-url https://download.pytorch.org/whl/cu128
 
 hf-to-s3: check-aws-profile check-hf-to-s3
 	python scripts/hf_to_s3.py

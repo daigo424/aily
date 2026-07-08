@@ -20,3 +20,4 @@ class ScheduleExtraction(BaseModel):
     end_time: str | None = Field(default=None, description="終了時刻 (HH:MM)。ユーザーが明示した場合のみ。推測禁止")
     follow_up_question: str | None = Field(default=None, description="不足情報を1つだけ聞く質問文")
     reply: str = Field(default="", description="ユーザーへの返答文（ユーザーと同じ言語で）")
+    needs_web_search: bool = Field(default=False, description="最新情報の取得にウェブ検索が必要かどうか")
