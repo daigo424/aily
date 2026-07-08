@@ -99,8 +99,8 @@ def _quantize_w8a8(local_dir: str, quant_dir: str) -> None:
     from datasets import load_dataset
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    NUM_CALIBRATION_SAMPLES = 1024
-    MAX_SEQUENCE_LENGTH = 2048
+    NUM_CALIBRATION_SAMPLES = 512
+    MAX_SEQUENCE_LENGTH = 1024
 
     print("   モデルをロード中...")
     tokenizer = AutoTokenizer.from_pretrained(local_dir)
