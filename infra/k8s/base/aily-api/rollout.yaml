@@ -33,6 +33,8 @@ spec:
               value: redis-primary.redis.svc.cluster.local
             - name: LLM_BASE_URL
               value: http://vllm-predictor.aily-ml.svc.cluster.local/v1
+            - name: SEARXNG_URL
+              value: http://searxng.aily.svc.cluster.local:8080
           resources:
             requests:
               cpu: 200m

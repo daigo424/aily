@@ -1,3 +1,3 @@
-from apps.api.routers import chat, webhook
+from apps.api.routers import chat
 
-__all__ = ["chat", "webhook"]
+__all__ = ["chat"]

@@ -21,5 +21,13 @@ class Interface(ABC):
         pass
 
     @abstractmethod
-    def gen_text(self, prompt: str, temperature: float = 0.3) -> str:
+    def gen_text(
+        self,
+        prompt: str,
+        temperature: float = 0.3,
+        system_prompt: str | None = None,
+        history: list[dict] | None = None,
+        image_base64: str | None = None,
+        image_mime_type: str | None = None,
+    ) -> str:
         pass

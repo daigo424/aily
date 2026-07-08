@@ -14,11 +14,13 @@ Browser
   ▼
 [aily-frontend]  ──────────────────────────────────────────────────┐
                                                                     │
-[aily-api]  ──  LangGraph state machine  ──  KServe InferenceService  ──  vLLM (llama3.2-vision:11b)
-    │                                              │
-    │  OpenLLMetry auto-instrumentation            │  Prometheus metrics
-    ▼                                              ▼
-[Langfuse]  (trace / eval storage)      [kube-prometheus-stack]  →  HPA
+[aily-api]  ──  LangGraph state machine  ──  KServe InferenceService  ──  vLLM (google/gemma-3-12b-it-w8a8)
+    │                    │                              │
+    │               [SearXNG]                          │  Prometheus metrics
+    │         (self-hosted web search)                 ▼
+    │  OpenLLMetry auto-instrumentation     [kube-prometheus-stack]  →  HPA
+    ▼
+[Langfuse]  (trace / eval storage)
     │
 [MLflow]  (model registry / artifacts on S3)
 ```
@@ -34,8 +36,8 @@ Image attachments are stored in S3 and served via CloudFront (OAC + SSE-KMS). Co
 | Component | Choice | Why |
 |---|---|---|
 | Runtime | KServe (RawDeployment) + vLLM | RawDeployment avoids Knative; KServe's `InferenceService` CRD provides a unified interface for adding STT/TTS models in a later phase without reinventing each manifest |
-| Model | `llama3.2-vision:11b` via vLLM | Multimodal (text + image); 11B in FP16 requires ~22 GB VRAM — fits comfortably on L40S (48 GB) with ~26 GB headroom for KV cache and image encoding |
-| GPU nodes | Karpenter (`g6e.xlarge`, Spot-first) | Zero GPU cost when idle; auto-provision on demand |
+| Model | `google/gemma-3-12b-it-w8a8` via vLLM | Multimodal (text + image); W8A8 GPTQ-quantized (via llmcompressor) requires ~12 GB VRAM — fits on L40S (48 GB) with ~36 GB headroom for KV cache and image encoding |
+| GPU nodes | Karpenter (`g6.xlarge`, Spot-first) | Zero GPU cost when idle; auto-provision on demand; L4 has native INT8 acceleration suited for W8A8 |
 | Scaling | HPA on vLLM Prometheus metrics | CPU utilization is a poor proxy for LLM load; scaling on `vllm:num_requests_waiting` and `vllm:gpu_cache_usage_factor` reacts to actual inference pressure |
 
 Karpenter disruption budgets prevent simultaneous GPU node replacement (cold-start churn) while still allowing consolidation during off-peak hours:
@@ -109,10 +111,13 @@ The chat application is a LangGraph state machine: each message is classified by
 | `llm_extraction` | Every message | Extracts intent and schedule fields; asks follow-up if any field is missing |
 | `handle_add_schedule` | `add_schedule` | Accumulates fields into `schedule_draft`; confirms and commits when complete |
 | `handle_list_schedule` | `list_schedule` | Returns upcoming events and tasks from DB |
-| `handle_other_intent` | `smalltalk` / `unknown` | Returns LLM reply without touching schedule data |
+| `handle_web_search` | `smalltalk` / `unknown` where LLM sets `needs_web_search: true` | Generates a concise search query via LLM → fetches up to 5 results from SearXNG → synthesizes a reply with source URLs |
+| `handle_other_intent` | `smalltalk` / `unknown` where `needs_web_search: false` | Returns LLM reply without touching schedule data |
+
+Whether to trigger web search is decided by the LLM itself during the extraction step (`needs_web_search` field in the JSON schema). Questions about attached images are always routed to `handle_other_intent` regardless. SearXNG is self-hosted and requires no external API key.
 
 **Interfaces:**
-- **Web chat (Flet)** — server-side Python, WebSocket to browser, SSE streaming responses, multimodal image upload
+- **Web chat (Flet)** — server-side Python, WebSocket to browser, SSE streaming responses, multimodal image upload (JPEG / PNG only)
 - **Admin dashboard (Streamlit)** — event and task list with status
 
 ---
@@ -124,7 +129,7 @@ Managed by Terraform. `terraform-apply.yml` creates all AWS resources, fills K8s
 | Component | Role |
 |---|---|
 | EKS 1.32 + Karpenter | Container orchestration; GPU nodes provisioned on demand |
-| KServe + vLLM | Model serving (`llama3.2-vision:11b`, multimodal) |
+| KServe + vLLM | Model serving (`google/gemma-3-12b-it-w8a8`, multimodal, W8A8 quantized) |
 | Argo Rollouts | Blue/Green deploy for `aily-api` |
 | ArgoCD | GitOps — watches `infra/k8s/` |
 | RDS Aurora PostgreSQL | Application DB + LangGraph checkpointer |
@@ -132,6 +137,7 @@ Managed by Terraform. `terraform-apply.yml` creates all AWS resources, fills K8s
 | kube-prometheus-stack | Metrics collection; Prometheus Adapter exposes vLLM metrics to HPA |
 | Langfuse + ClickHouse | LLM trace and evaluation storage |
 | MLflow | Model registry; artifacts stored on S3 |
+| SearXNG | Self-hosted meta-search engine; used by `handle_web_search` node for real-time queries |
 
 ### Namespaces
 
@@ -185,7 +191,7 @@ cp .env.example .env
 # Set LLM_BASE_URL, LLM_MODEL, DB_* and optionally Langfuse keys
 make up            # Start all services
 make atlas-apply   # Apply DB schema
-make vllm-start    # Start local Ollama model (optional)
+make llm-start    # Start local Ollama model (optional)
 ```
 
 | Service | Port |
@@ -195,6 +201,7 @@ make vllm-start    # Start local Ollama model (optional)
 | Flet web chat | 8502 |
 | PostgreSQL | 5432 |
 | MLflow | 5000 |
+| SearXNG | 8080 |
 
 ```bash
 make all-check   # format + lint-fix + typecheck + test
@@ -225,3 +232,4 @@ make frontend-ui      # Port-forward frontend   → localhost:8502
 | `terraform-apply.yml` | Manual | `terraform apply` → fills K8s placeholders → bootstraps ArgoCD → creates RDS DBs and K8s secrets |
 | `destroy.yml` | Manual (test only) | Drains EKS, cleans up K8s-created AWS resources (ALB, ENI, etc.), then `terraform destroy` |
 | `eks-orphan-cleanup.yml` | Manual | Audits orphaned AWS resources from EKS/Karpenter/LBC (EBS, EC2, ALB, SG, ENI, CW log groups, etc.) and prints delete commands |
+| `quantize-model.yml` | Manual | Launches a GPU EC2 instance (g6e.xlarge) via SSM, runs W8A8 GPTQ quantization with llmcompressor on the specified HuggingFace model, and uploads the quantized weights to S3 |

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     ml_data_bucket: str = ""
     attachment_s3_prefix: str = "ml_data/app/message_attachments"
     cloudfront_url: str = ""
+    searxng_url: str = ""
 
     @property
     def app_database_url(self) -> str:

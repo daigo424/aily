@@ -21,7 +21,7 @@ dependencies = [
     "requests==2.32.3",
     "sqlalchemy>=2.0",
     "streamlit>=1.57.0",
-    "starlette>=0.40.0,<0.44.0",
+    "starlette>=0.45.0",
     "uvicorn[standard]>=0.35.0,<0.50.0",
 ]
 
@@ -57,11 +57,24 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 warn_return_any = true
 
+[tool.uv]
+override-dependencies = [
+    "triton ; sys_platform != 'win32'",
+]
+
 [dependency-groups]
+quantize = [
+    "torch>=2.3",
+    "transformers>=4.51",
+    "llmcompressor",
+    "datasets",
+    "bitsandbytes",
+    "accelerate",
+]
 dev = [
     "boto3>=1.43.39",
     "debugpy==1.8.1",
-    "fastapi==0.115.12",
+    "fastapi>=0.115.12",
     "google-genai>=1.55.0",
     "huggingface-hub>=1.21.0",
     "mypy==1.18.2",
@@ -82,6 +95,6 @@ dev = [
     "sqlalchemy==2.0.30",
     "streamlit>=1.56.0",
     "types-requests==2.31.0.20240406",
-    "starlette>=0.40.0,<0.44.0",
+    "starlette>=0.45.0",
     "uvicorn[standard]>=0.35.0,<0.50.0",
 ]
