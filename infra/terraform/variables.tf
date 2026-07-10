@@ -18,7 +18,7 @@ variable "compute_enabled" {
 
 variable "eks_version" {
   type    = string
-  default = "1.32"
+  default = "1.34"
 }
 
 variable "vpc_cidr" {
