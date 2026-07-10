@@ -17,4 +17,4 @@ patches:
 images:
 - name: REPLACE_WITH_ECR_AILY_API_URL
   newName: 815935788564.dkr.ecr.us-west-2.amazonaws.com/aily-test/aily-api
-  newTag: 6b06d58929f02f568cf6e98de2f404117920dfd2
+  newTag: 202ba1141aa9d38834384d54cd6a6d367c568a04
