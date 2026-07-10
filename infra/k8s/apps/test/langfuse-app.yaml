@@ -38,6 +38,13 @@ spec:
           serviceAccount:
             annotations:
               eks.amazonaws.com/role-arn: arn:aws:iam::815935788564:role/aily-test-langfuse-role
+        tolerations:
+          - key: role
+            operator: Equal
+            value: workload
+            effect: NoSchedule
+        nodeSelector:
+          role: workload
         postgresql:
           enabled: false
         redis:

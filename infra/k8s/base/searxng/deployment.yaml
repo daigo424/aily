@@ -14,6 +14,13 @@ spec:
       labels:
         app: searxng
     spec:
+      tolerations:
+        - key: role
+          operator: Equal
+          value: workload
+          effect: NoSchedule
+      nodeSelector:
+        role: workload
       containers:
         - name: searxng
           image: searxng/searxng:latest

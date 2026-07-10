@@ -14,6 +14,13 @@ spec:
     helm:
       valuesObject:
         controller:
+          tolerations:
+            - key: role
+              operator: Equal
+              value: workload
+              effect: NoSchedule
+          nodeSelector:
+            role: workload
           resources:
             requests:
               cpu: 100m
@@ -22,6 +29,13 @@ spec:
             spec:
               archiveLogs: true
         server:
+          tolerations:
+            - key: role
+              operator: Equal
+              value: workload
+              effect: NoSchedule
+          nodeSelector:
+            role: workload
           authModes:
             - server
           resources:

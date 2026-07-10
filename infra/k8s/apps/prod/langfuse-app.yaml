@@ -38,6 +38,13 @@ spec:
           serviceAccount:
             annotations:
               eks.amazonaws.com/role-arn: REPLACE_WITH_LANGFUSE_IRSA_ARN
+        tolerations:
+          - key: role
+            operator: Equal
+            value: workload
+            effect: NoSchedule
+        nodeSelector:
+          role: workload
         postgresql:
           enabled: false
         redis:
