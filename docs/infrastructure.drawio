@@ -1,0 +1,492 @@
+<mxfile host="Electron">
+  <diagram id="uSvgqUTvgiy2UQuxoX44" name="ページ-1">
+    <mxGraphModel dx="2545" dy="1565" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="2300" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Hyvab9o_2hDucKe5otSm-6" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="&lt;span style=&quot;color: rgb(36, 136, 20);&quot;&gt;Priivate subnet (&lt;/span&gt;&lt;span style=&quot;color: light-dark(rgb(36, 136, 20), rgb(85, 171, 71)); background-color: transparent;&quot;&gt;us-west-2 a / b / c)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="1520" width="2795" x="45" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-24" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_eks_cluster;grStroke=0;verticalLabelPosition=top;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fillColor=#fff8e6;strokeColor=#D79B00;fontStyle=1;fontSize=11;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;dashed=1;" value="EKS Cluster 1.34" vertex="1">
+          <mxGeometry height="1440" width="2570" x="60" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-2" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#7AA116;fillColor=#F2F6E8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;dashed=0;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="Public subnet (&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(36, 136, 20), rgb(85, 171, 71));&quot;&gt;us-west-2 a / b / c)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="155" width="2795" x="45" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-1" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#9673a6;fillColor=none;verticalAlign=bottom;align=center;spacingLeft=30;dashed=0;fontFamily=Helvetica;labelBackgroundColor=default;resizable=1;movable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;labelPosition=center;verticalLabelPosition=top;" value="&lt;b&gt;VPC 10.0.0.0/16 (us-west-2)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="1890" width="2830" x="30" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=22;fontStyle=1;align=center;fillColor=none;strokeColor=none;" value="aily — AWS Architecture (us-west-2)" vertex="1">
+          <mxGeometry height="50" width="700" x="760" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="users" parent="1" style="shape=mxgraph.aws4.user;labelBackgroundColor=none;sketch=0;verticalLabelPosition=bottom;verticalAlign=top;html=1;strokeColor=#000000;fillColor=#000000;" value="Users" vertex="1">
+          <mxGeometry height="60" width="60" x="1412.5" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cf" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;labelBackgroundColor=none;sketch=0;fillColor=#8C4FFF;fontColor=default;strokeColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="CloudFront&#xa;(OAC + SSE-KMS)" vertex="1">
+          <mxGeometry height="60" width="60" x="2970" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="ecr" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;labelBackgroundColor=none;sketch=0;fillColor=#ED7100;fontColor=default;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="ECR&#xa;(aily-api / frontend / mlflow)" vertex="1">
+          <mxGeometry height="60" width="60" x="2920" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;labelBackgroundColor=none;sketch=0;fillColor=#3F8624;fontColor=default;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="S3 (ml-data)&#xa;model weights · MLflow artifacts&#xa;message attachments · Argo logs" vertex="1">
+          <mxGeometry height="60" width="60" x="2920" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="sm" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;labelBackgroundColor=none;sketch=0;fillColor=#DD344C;fontColor=default;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Secrets Manager" vertex="1">
+          <mxGeometry height="60" width="60" x="2865" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="igw" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;labelBackgroundColor=none;sketch=0;fillColor=#8C4FFF;fontColor=#000000;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Internet Gateway" vertex="1">
+          <mxGeometry height="60" width="60" x="145" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="nat" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.nat_gateway;labelBackgroundColor=none;sketch=0;fillColor=#8C4FFF;fontColor=default;strokeColor=light-dark(#ffffff, #ededed);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="NAT Gateway" vertex="1">
+          <mxGeometry height="60" width="60" x="265" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="alb" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;labelBackgroundColor=none;sketch=0;fillColor=#8C4FFF;fontColor=default;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="ALB (AWS LBC)" vertex="1">
+          <mxGeometry height="60" width="60" x="385" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="bastion" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;labelBackgroundColor=none;sketch=0;fillColor=#ED7100;fontColor=default;strokeColor=light-dark(#FFFFFF,#FFFFFF);verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Bastion (EC2)" vertex="1">
+          <mxGeometry height="60" width="60" x="1415" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;labelBackgroundColor=none;sketch=0;fillColor=#C925D1;fontColor=default;strokeColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="RDS PostgreSQL 16&#xa;db.t3.micro&#xa;app DB + LangGraph checkpointer" vertex="1">
+          <mxGeometry height="60" width="60" x="2680" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="q_ec2" parent="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;labelBackgroundColor=none;sketch=0;fillColor=#ED7100;fontColor=default;strokeColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Quantize EC2&#xa;g6e.xlarge (ephemeral)&#xa;W8A8 GPTQ via SSM" vertex="1">
+          <mxGeometry height="60" width="60" x="2680" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="eks_addons" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" value="EKS Addons: VPC CNI · CoreDNS · kube-proxy · EBS CSI Driver · S3 Mountpoint CSI Driver" vertex="1">
+          <mxGeometry height="65" width="570" x="2040" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="ailyml_ns" parent="1" style="rounded=1;arcSize=3;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;fontStyle=1;fontSize=11;verticalAlign=top;" value="GPU Node — g6e.xlarge / L40S 48 GB (Karpenter, Spot-first → On-Demand fallback)" vertex="1">
+          <mxGeometry height="610" width="1520" x="105" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="kserve_label" parent="1" style="rounded=1;fillColor=#0050ef;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="KServe (InferenceService CRD, RawDeployment mode)" vertex="1">
+          <mxGeometry height="35" width="360" x="125" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_is_rect" parent="1" style="rounded=1;arcSize=3;fillColor=#BBDEFB;strokeColor=#1976D2;strokeWidth=1;fontStyle=1;fontSize=11;verticalAlign=top;" value="InferenceService: vllm-predictor" vertex="1">
+          <mxGeometry height="440" width="1480" x="125" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_rt" parent="1" style="rounded=1;fillColor=#1976D2;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="ServingRuntime: vLLM&#xa;google/gemma-3-12b-it-w8a8&#xa;W8A8 GPTQ ~12 GB VRAM" vertex="1">
+          <mxGeometry height="100" width="300" x="145" y="725" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_hpa" parent="1" style="rounded=1;fillColor=#1976D2;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="HPA (custom metrics)&#xa;vllm:num_requests_waiting&#xa;vllm:gpu_cache_usage_factor" vertex="1">
+          <mxGeometry height="100" width="300" x="465" y="725" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_pvc" parent="1" style="rounded=1;fillColor=#1976D2;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="PV / PVC&#xa;S3 Mountpoint CSI&#xa;(model weights from S3)" vertex="1">
+          <mxGeometry height="100" width="260" x="785" y="725" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_metrics" parent="1" style="rounded=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=10;" value="Prometheus metrics exposed&#xa;TTFT · TPOT · token counts · GPU cache · queue depth" vertex="1">
+          <mxGeometry height="50" width="560" x="145" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_pdb" parent="1" style="rounded=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=10;" value="PodDisruptionBudget&#xa;Karpenter disruption budgets&#xa;(freeze JST 9:00–21:00)" vertex="1">
+          <mxGeometry height="60" width="280" x="720" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_svcmon" parent="1" style="rounded=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=10;" value="ServiceMonitor (vLLM)" vertex="1">
+          <mxGeometry height="40" width="200" x="145" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="vllm_argo_sched" parent="1" style="rounded=1;fillColor=#E3F2FD;strokeColor=#1976D2;fontSize=10;" value="Argo Workflows&#xa;(eval step: LLM-as-a-judge via this vLLM)" vertex="1">
+          <mxGeometry height="40" width="360" x="360" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_ns" parent="1" style="rounded=1;arcSize=3;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=2;fontStyle=1;fontSize=11;verticalAlign=top;" value="Workload Node — t3/t3a/m5 large/xlarge (Karpenter, Spot)" vertex="1">
+          <mxGeometry height="590" width="1520" x="105" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_api_rect" parent="1" style="rounded=1;arcSize=3;fillColor=#C8E6C9;strokeColor=#388E3C;strokeWidth=1;fontStyle=1;fontSize=11;verticalAlign=top;" value="aily-api Rollout (Argo Rollouts Blue/Green)" vertex="1">
+          <mxGeometry height="230" width="1480" x="125" y="1225" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_api_lg" parent="1" style="rounded=1;fillColor=#388E3C;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="LangGraph state machine (FastAPI + OpenLLMetry auto-instrumentation)&#xa;llm_extraction → handle_add_schedule | handle_list_schedule | handle_web_search (needs_web_search=true) | handle_other_intent" vertex="1">
+          <mxGeometry height="80" width="1440" x="145" y="1270" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_api_img" parent="1" style="rounded=1;fillColor=#ffffff;strokeColor=#388E3C;fontSize=10;" value="Image upload to S3&#xa;(JPEG/PNG, max 10MB)" vertex="1">
+          <mxGeometry height="60" width="240" x="145" y="1370" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_api_pg" parent="1" style="rounded=1;fillColor=#ffffff;strokeColor=#388E3C;fontSize=10;" value="PostgreSQL (LangGraph&#xa;PostgresSaver checkpointer)" vertex="1">
+          <mxGeometry height="60" width="240" x="405" y="1370" as="geometry" />
+        </mxCell>
+        <mxCell id="aily_fe" parent="1" style="rounded=1;fillColor=#A5D6A7;strokeColor=#2E7D32;fontSize=10;" value="aily-frontend&#xa;Flet 0.85 · WebSocket · SSE streaming&#xa;Image upload: JPEG / PNG only" vertex="1">
+          <mxGeometry height="80" width="320" x="125" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="streamlit" parent="1" style="rounded=1;fillColor=#A5D6A7;strokeColor=#2E7D32;fontSize=10;" value="Streamlit&#xa;Admin dashboard&#xa;event / task list" vertex="1">
+          <mxGeometry height="80" width="220" x="465" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="searxng" parent="1" style="rounded=1;fillColor=#FFF9C4;strokeColor=#D6B656;fontSize=10;" value="SearXNG :8080&#xa;self-hosted meta-search&#xa;(no API key required)" vertex="1">
+          <mxGeometry height="80" width="240" x="705" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="atlas_job" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" value="Atlas schema-apply Job&#xa;(DB migration on deploy)" vertex="1">
+          <mxGeometry height="55" width="260" x="125" y="1585" as="geometry" />
+        </mxCell>
+        <mxCell id="infra_grp" parent="1" style="rounded=1;arcSize=3;fillColor=#F3E5F5;strokeColor=#6A1B9A;strokeWidth=2;fontStyle=1;fontSize=12;verticalAlign=top;" value="System Node — (Managed, t3.large x 1-3, On-Demand)" vertex="1">
+          <mxGeometry height="790" width="880" x="1700" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="argocd_box" parent="1" style="rounded=1;fillColor=#326DE6;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="ArgoCD&#xa;GitOps — watches infra/k8s/&#xa;Kustomize overlays (test / prod)" vertex="1">
+          <mxGeometry height="90" width="260" x="1725" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="argo_roll_box" parent="1" style="rounded=1;fillColor=#326DE6;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="Argo Rollouts&#xa;Blue/Green for aily-api&#xa;autoPromotionEnabled: false" vertex="1">
+          <mxGeometry height="90" width="240" x="2005" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="argo_wf_box" parent="1" style="rounded=1;fillColor=#326DE6;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="Argo Workflows&#xa;Eval pipeline (manual trigger)&#xa;LLM-as-a-judge scoring" vertex="1">
+          <mxGeometry height="90" width="260" x="1060" y="1618.2" as="geometry" />
+        </mxCell>
+        <mxCell id="prom_box" parent="1" style="rounded=1;fillColor=#E95420;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="kube-prometheus-stack&#xa;+ Prometheus Adapter&#xa;vLLM custom metrics → HPA" vertex="1">
+          <mxGeometry height="90" width="280" x="1725" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="grafana_box" parent="1" style="rounded=1;fillColor=#E95420;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="Grafana&#xa;dashboards" vertex="1">
+          <mxGeometry height="90" width="200" x="2025" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="dcgm_box" parent="1" style="rounded=1;fillColor=#76B900;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="NVIDIA Device Plugin&#xa;+ GPU Feature Discovery" vertex="1">
+          <mxGeometry height="90" width="240" x="2245" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-22" edge="1" parent="1" source="langfuse_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=0;strokeColor=#E64A19;" target="valkey_infra">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1690" y="1641" />
+              <mxPoint x="1690" y="1275" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-24" connectable="0" parent="XX65osBOtyNgrnUVSZzg-22" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Store" vertex="1">
+          <mxGeometry relative="1" x="0.0307" y="-2" as="geometry">
+            <mxPoint x="-2" y="-43" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="langfuse_box" parent="1" style="rounded=1;fillColor=#6B21A8;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="Langfuse&#xa;LLM trace + eval storage&#xa;OpenLLMetry integration" vertex="1">
+          <mxGeometry height="90" width="260" x="1345" y="1618.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mlflow_box" parent="1" style="rounded=1;fillColor=#0194E2;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="MLflow&#xa;model registry&#xa;artifacts → S3" vertex="1">
+          <mxGeometry height="90" width="260" x="1345" y="1500.9" as="geometry" />
+        </mxCell>
+        <mxCell id="karpenter_ns_rect" parent="1" style="rounded=1;arcSize=4;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=10;verticalAlign=top;" value="Namespace: karpenter" vertex="1">
+          <mxGeometry height="200" width="820" x="1730" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="karpenter_box" parent="1" style="rounded=1;fillColor=#232F3E;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="Karpenter&#xa;GPU NodePool: g6e.xlarge (Spot → On-Demand) · disruption budgets · expireAfter 720h&#xa;ClickHouse NodePool: t3.large (On-Demand)&#xa;Workload NodePool: t3/t3a/m5 large/xlarge (Spot)" vertex="1">
+          <mxGeometry height="125" width="780" x="1750" y="1045" as="geometry" />
+        </mxCell>
+        <mxCell id="valkey_infra" parent="1" style="rounded=1;fillColor=#FFCCBC;strokeColor=#E64A19;fontSize=10;" value="Valkey StatefulSet (Redis-compat)" vertex="1">
+          <mxGeometry height="60" width="260" x="1730" y="1245" as="geometry" />
+        </mxCell>
+        <mxCell id="cert_lbc_box" parent="1" style="rounded=1;fillColor=#326DE6;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="cert-manager + AWS Load Balancer Controller&#xa;manage Ingress → ALB provisioning" vertex="1">
+          <mxGeometry height="60" width="400" x="1730" y="825" as="geometry" />
+        </mxCell>
+        <mxCell id="e_users_alb" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00539D;strokeWidth=2;exitX=-0.053;exitY=0.572;exitDx=0;exitDy=0;curved=0;exitPerimeter=0;" target="alb" value="HTTPS / WebSocket">
+          <mxGeometry relative="1" x="-0.0332" as="geometry">
+            <mxPoint x="-1" as="offset" />
+            <Array as="points">
+              <mxPoint x="1170" y="144" />
+              <mxPoint x="1170" y="130" />
+              <mxPoint x="430" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_users_cf" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#8C4FFF;curved=0;" target="cf" value="HTTPS (image view)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3050" y="140" />
+              <mxPoint x="3050" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_cf_s3" edge="1" parent="1" source="cf" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#8C4FFF;curved=0;" target="s3" value="OAC + SSE-KMS&#xa;(attachments/)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2910" y="310" />
+              <mxPoint x="2910" y="370" />
+              <mxPoint x="2950" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_alb_fe" edge="1" parent="1" source="alb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#2E7D32;strokeWidth=2;curved=0;" target="aily_fe">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="415" y="170" />
+              <mxPoint x="40" y="170" />
+              <mxPoint x="40" y="1520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_api_vllm" edge="1" parent="1" source="aily_api_lg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1565C0;strokeWidth=2;curved=0;" target="vllm_rt" value="OpenAI-compat API&#xa;(/v1/chat/completions)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="1020" />
+              <mxPoint x="130" y="1020" />
+              <mxPoint x="130" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_api_searxng" edge="1" parent="1" source="aily_api_lg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#D6B656;curved=0;" target="searxng" value="web search">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api_rds" edge="1" parent="1" source="aily_api_pg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C925D1;curved=0;" target="rds" value="PostgreSQL">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2640" y="1380" />
+              <mxPoint x="2640" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_api_s3" edge="1" parent="1" source="aily_api_img" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;curved=0;" target="s3" value="image upload">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="265" y="1360" />
+              <mxPoint x="2790" y="1360" />
+              <mxPoint x="2790" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_vllm_prom" edge="1" parent="1" source="vllm_svcmon" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E95420;curved=0;" target="prom_box" value="scrape /metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="920" />
+              <mxPoint x="1680" y="920" />
+              <mxPoint x="1680" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_prom_hpa" edge="1" parent="1" source="prom_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E95420;curved=0;" target="vllm_hpa" value="custom metrics → HPA">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1245" y="755" />
+              <mxPoint x="1245" y="700" />
+              <mxPoint x="615" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pvc_s3" edge="1" parent="1" source="vllm_pvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;curved=0;" target="s3" value="S3 Mountpoint CSI&#xa;(model weights)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2970" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_mlflow_s3" edge="1" parent="1" source="mlflow_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;curved=0;" target="s3" value="model artifacts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1680" y="1560" />
+              <mxPoint x="1680" y="1760" />
+              <mxPoint x="2970" y="1760" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_mlwf_mlflow" edge="1" parent="1" source="ml_workflow" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0194E2;curved=0;" target="mlflow_box" value="register model version">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1340" y="1546" />
+              <mxPoint x="1340" y="1480" />
+              <mxPoint x="1410" y="1480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_mlwf_s3" edge="1" parent="1" source="ml_workflow" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;curved=0;" target="s3" value="Fine-tuned model">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1010" y="1545" />
+              <mxPoint x="1010" y="1840" />
+              <mxPoint x="3020" y="1840" />
+              <mxPoint x="3020" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_github_ecr" edge="1" parent="1" source="Hyvab9o_2hDucKe5otSm-28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ED7100;strokeWidth=2;curved=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="ecr" value="docker push">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_github_argocd" edge="1" parent="1" source="Hyvab9o_2hDucKe5otSm-28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#326DE6;strokeWidth=2;curved=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="argocd_box" value="GitOps (infra/k8s/)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2870" y="110" />
+              <mxPoint x="1830" y="110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_github_q" edge="1" parent="1" source="Hyvab9o_2hDucKe5otSm-28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ED7100;dashed=1;curved=0;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" target="q_ec2" value="SSM command&#xa;Quantize LLM Model">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2820" y="115" />
+              <mxPoint x="2820" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_q_s3" edge="1" parent="1" source="q_ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;dashed=1;curved=0;" target="s3" value="Upload&#xa;quantized&#xa;to W8A8 weights">
+          <mxGeometry relative="1" x="-0.0667" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2870" y="550" />
+              <mxPoint x="2870" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ecr_api" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ED7100;dashed=1;curved=0;" target="aily_api_rect" value="image pull">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="110" y="210" />
+              <mxPoint x="110" y="1250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ecr_fe" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ED7100;dashed=1;curved=0;" target="aily_fe" value="image pull">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="90" y="190" />
+              <mxPoint x="90" y="1500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ecr_mlflow" edge="1" parent="1" source="ecr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#ED7100;dashed=1;curved=0;" target="mlflow_box" value="image pull">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3040" y="210" />
+              <mxPoint x="3040" y="980" />
+              <mxPoint x="1540" y="980" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_argocd_api" edge="1" parent="1" source="argocd_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#326DE6;strokeWidth=2;curved=0;" target="aily_api_rect" value="sync / Rollout">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1330" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_argocd_fe" edge="1" parent="1" source="argocd_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#326DE6;curved=0;" target="aily_fe" value="sync">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1660" y="635" />
+              <mxPoint x="1660" y="1440" />
+              <mxPoint x="285" y="1440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_argowf_vllm" edge="1" parent="1" source="argo_wf_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#326DE6;curved=0;" target="vllm_rt" value="eval (LLM-as-a-judge)">
+          <mxGeometry relative="1" x="-0.4831" y="-3" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="60" y="1663" />
+              <mxPoint x="60" y="775" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_sm_api" edge="1" parent="1" source="sm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#DD344C;dashed=1;curved=0;" target="aily_api_rect" value="secretRef (aily-secret)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2290" y="850" />
+              <mxPoint x="2290" y="940" />
+              <mxPoint x="1490" y="940" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nat_igw" edge="1" parent="1" source="nat" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#8C4FFF;curved=0;" target="igw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_argowf_s3" edge="1" parent="1" source="argo_wf_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#3F8624;dashed=1;curved=0;" target="s3" value="Argo logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="1790" />
+              <mxPoint x="2930" y="1790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dcgm_prom" edge="1" parent="1" source="dcgm_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#76B900;curved=0;" target="prom_box" value="GPU metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2365" y="690" />
+              <mxPoint x="1865" y="690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-25" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="" vertex="1">
+          <mxGeometry height="30" width="30" x="60" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-28" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" value="&lt;b&gt;GitHub Repository&lt;/b&gt;&lt;div&gt;daigo424/aily&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="2880" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-29" parent="1" style="dashed=0;outlineConnect=0;html=1;align=center;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.weblogos.github;aspect=fixed;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="" vertex="1">
+          <mxGeometry height="50" width="50" x="2935" y="75" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-31" parent="1" style="aspect=fixed;sketch=0;html=1;dashed=0;whitespace=wrap;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#2875E2;strokeColor=#ffffff;points=[[0.005,0.63,0],[0.1,0.2,0],[0.9,0.2,0],[0.5,0,0],[0.995,0.63,0],[0.72,0.99,0],[0.5,1,0],[0.28,0.99,0]];shape=mxgraph.kubernetes.icon2;kubernetesLabel=1;prIcon=node" value="" vertex="1">
+          <mxGeometry height="48" width="50" x="575" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-32" parent="1" style="aspect=fixed;sketch=0;html=1;dashed=0;whitespace=wrap;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#2875E2;strokeColor=#ffffff;points=[[0.005,0.63,0],[0.1,0.2,0],[0.9,0.2,0],[0.5,0,0],[0.995,0.63,0],[0.72,0.99,0],[0.5,1,0],[0.28,0.99,0]];shape=mxgraph.kubernetes.icon2;kubernetesLabel=1;prIcon=node" value="" vertex="1">
+          <mxGeometry height="48" width="50" x="650" y="1160" as="geometry" />
+        </mxCell>
+        <mxCell id="Hyvab9o_2hDucKe5otSm-33" parent="1" style="aspect=fixed;sketch=0;html=1;dashed=0;whitespace=wrap;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#2875E2;strokeColor=#ffffff;points=[[0.005,0.63,0],[0.1,0.2,0],[0.9,0.2,0],[0.5,0,0],[0.995,0.63,0],[0.72,0.99,0],[0.5,1,0],[0.28,0.99,0]];shape=mxgraph.kubernetes.icon2;kubernetesLabel=1;prIcon=node" value="" vertex="1">
+          <mxGeometry height="48" width="50" x="1920" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-8" edge="1" parent="1" source="vllm_rt" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeColor=#6B21A8;curved=0;" target="langfuse_box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="120" y="790" />
+              <mxPoint x="120" y="1740" />
+              <mxPoint x="1475" y="1740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-10" connectable="0" parent="XX65osBOtyNgrnUVSZzg-8" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="OpenLLMetry traces" vertex="1">
+          <mxGeometry relative="1" x="0.9267" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ml_workflow" parent="1" style="rounded=1;fillColor=#1565C0;fontColor=#ffffff;strokeColor=none;fontSize=10;" value="ml-workflow&#xa;eval + model registration → S3 + MLflow" vertex="1">
+          <mxGeometry height="89.1" width="275" x="1050" y="1500.9" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-12" parent="1" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="&lt;b&gt;IRSA&lt;/b&gt;" vertex="1">
+          <mxGeometry height="321.6" width="390" x="2190" y="1398.4" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-13" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="lbc" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2250" y="1534.1" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-14" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="argo-workflow-server" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2470" y="1531.35" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-15" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="s3-csi" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2360" y="1440" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-16" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="aily-api" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2250" y="1440" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-17" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="vllm&lt;div&gt;(S3 read for model weights)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2360" y="1630" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-18" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="langfuse&lt;br&gt;(S3 media upload)" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2470" y="1440" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-19" parent="1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="ml-workflow" vertex="1">
+          <mxGeometry height="28.2" width="50" x="2360" y="1534.1" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-25" parent="1" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fillColor=#fff2cc;strokeColor=#d6b656;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-size: 11px; font-weight: 700; white-space: nowrap;&quot;&gt;ClickHouse Node — r6i/r6a large/xlarge (Karpenter, On-Demand)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="321.6" width="460" x="1700" y="1398.4" as="geometry" />
+        </mxCell>
+        <mxCell id="ch_box" parent="1" style="rounded=1;fillColor=#FFDB00;fontColor=#333333;strokeColor=none;fontSize=10;" value="ClickHouse&#xa;Langfuse analytics backend&#xa;Karpenter-managed node" vertex="1">
+          <mxGeometry height="90" width="260" x="1792.5" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-21" edge="1" parent="1" source="langfuse_box" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;curved=0;strokeColor=#FFDB00;" target="ch_box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1550" y="1780" />
+              <mxPoint x="1923" y="1780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-23" connectable="0" parent="XX65osBOtyNgrnUVSZzg-21" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Request&lt;div&gt;Analytics&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.0772" y="-2" as="geometry">
+            <mxPoint x="108" y="-112" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-26" parent="1" style="aspect=fixed;sketch=0;html=1;dashed=0;whitespace=wrap;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#2875E2;strokeColor=#ffffff;points=[[0.005,0.63,0],[0.1,0.2,0],[0.9,0.2,0],[0.5,0,0],[0.995,0.63,0],[0.72,0.99,0],[0.5,1,0],[0.28,0.99,0]];shape=mxgraph.kubernetes.icon2;kubernetesLabel=1;prIcon=node" value="" vertex="1">
+          <mxGeometry height="48" width="50" x="1700" y="1382" as="geometry" />
+        </mxCell>
+        <mxCell id="e_alb_api" edge="1" parent="1" source="alb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#388E3C;strokeWidth=2;curved=0;exitX=0.521;exitY=1.026;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="416" y="430" />
+              <mxPoint x="70" y="430" />
+              <mxPoint x="70" y="1350" />
+            </Array>
+            <mxPoint x="415" y="295" as="sourcePoint" />
+            <mxPoint x="125" y="1350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-33" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.472;entryY=-0.014;entryDx=0;entryDy=0;entryPerimeter=0;curved=0;fillColor=#ED7100;strokeColor=#ED7100;" target="bastion">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="XX65osBOtyNgrnUVSZzg-34" edge="1" parent="1" source="bastion" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.454;entryY=0.06;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#C925D1;curved=0;" target="rds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
