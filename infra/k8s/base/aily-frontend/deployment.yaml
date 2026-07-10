@@ -13,6 +13,13 @@ spec:
       labels:
         app: aily-frontend
     spec:
+      tolerations:
+        - key: role
+          operator: Equal
+          value: workload
+          effect: NoSchedule
+      nodeSelector:
+        role: workload
       containers:
         - name: frontend
           image: REPLACE_WITH_ECR_AILY_FRONTEND_URL
