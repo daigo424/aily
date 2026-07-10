@@ -4,28 +4,15 @@ An end-to-end LLMOps platform built for a personal AI schedule assistant. The ap
 
 > **Stack at a glance:** Python · FastAPI · LangGraph · vLLM · KServe · EKS + Karpenter · ArgoCD + Argo Rollouts · Argo Workflows · Langfuse · MLflow · Terraform
 
+| App | Argo CD |
+|-|-|
+| ![chat](docs/chat.png) | ![argocd](docs/argocd.png) |
+
 ---
 
 ## Architecture
 
-```
-Browser
-  │  WebSocket (Flet)
-  ▼
-[aily-frontend]  ──────────────────────────────────────────────────┐
-                                                                    │
-[aily-api]  ──  LangGraph state machine  ──  KServe InferenceService  ──  vLLM (google/gemma-3-12b-it-w8a8)
-    │                    │                              │
-    │               [SearXNG]                          │  Prometheus metrics
-    │         (self-hosted web search)                 ▼
-    │  OpenLLMetry auto-instrumentation     [kube-prometheus-stack]  →  HPA
-    ▼
-[Langfuse]  (trace / eval storage)
-    │
-[MLflow]  (model registry / artifacts on S3)
-```
-
-Image attachments are stored in S3 and served via CloudFront (OAC + SSE-KMS). Conversation state is persisted in PostgreSQL via LangGraph's `PostgresSaver` checkpointer.
+![infrastructure](docs/infrastructure.drawio.png)
 
 ---
 
