@@ -17,11 +17,12 @@ module "quantize" {
 module "network" {
   count = local.is_test ? 1 : 0
 
-  source      = "./modules/network"
-  name_prefix = local.name_prefix
-  vpc_cidr    = var.vpc_cidr
-  azs         = ["us-west-2a", "us-west-2b", "us-west-2c"]
-  create_nat  = var.compute_enabled
+  source           = "./modules/network"
+  name_prefix      = local.name_prefix
+  vpc_cidr         = var.vpc_cidr
+  azs              = ["us-west-2a", "us-west-2b", "us-west-2c"]
+  create_nat       = var.compute_enabled
+  create_endpoints = var.compute_enabled
 }
 
 module "ecr" {
@@ -36,7 +37,7 @@ module "ecr" {
 }
 
 module "bastion" {
-  count = local.is_test ? 1 : 0
+  count = local.create_compute ? 1 : 0
 
   source           = "./modules/bastion"
   name_prefix      = local.name_prefix
