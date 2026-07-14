@@ -97,6 +97,27 @@ moved {
   to   = aws_iam_service_linked_role.spot
 }
 
+# compute_enabled フラグで count を追加したことによる state アドレス変更
+moved {
+  from = module.network[0].aws_vpc_endpoint.s3
+  to   = module.network[0].aws_vpc_endpoint.s3[0]
+}
+
+moved {
+  from = module.network[0].aws_security_group.ecr_endpoint
+  to   = module.network[0].aws_security_group.ecr_endpoint[0]
+}
+
+moved {
+  from = module.network[0].aws_vpc_endpoint.ecr_api
+  to   = module.network[0].aws_vpc_endpoint.ecr_api[0]
+}
+
+moved {
+  from = module.network[0].aws_vpc_endpoint.ecr_dkr
+  to   = module.network[0].aws_vpc_endpoint.ecr_dkr[0]
+}
+
 moved {
   from = module.eks[0].aws_sqs_queue.karpenter
   to   = module.karpenter[0].aws_sqs_queue.karpenter
