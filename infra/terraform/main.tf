@@ -46,7 +46,7 @@ module "bastion" {
 }
 
 module "rds" {
-  count = local.is_test ? 1 : 0
+  count = local.create_compute ? 1 : 0
 
   source             = "./modules/rds"
   name_prefix        = local.name_prefix
