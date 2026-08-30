@@ -1,9 +1,3 @@
-resource "aws_kms_key" "ml_data_key" {
-  description             = "${var.name_prefix}-ml-data-kms-key"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-}
-
 resource "aws_s3_bucket" "ml_data" {
   bucket        = "${var.name_prefix}-ml-data"
   force_destroy = true
@@ -17,10 +11,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "ml_data" {
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.ml_data_key.arn
-      sse_algorithm     = "aws:kms"
+      sse_algorithm = "AES256"
     }
-    bucket_key_enabled = true
   }
 }
 
