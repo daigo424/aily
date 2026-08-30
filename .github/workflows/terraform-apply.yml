@@ -9,10 +9,15 @@ on:
         type: choice
         options: [test, prod]
       compute_enabled:
-        description: "EKS・NAT・IRSA を作成するか (false で削除。RDS・S3 は保持)"
+        description: "EKS・NAT・IRSA を作成するか (false で削除。RDS・S3 は保持)。ECR イメージ未存在時は起動直後に数分間 ImagePullBackOff になりうる（ArgoCD が自己修復）"
         required: true
         type: boolean
         default: false
+      retain_on_idle:
+        description: "ECR・Secrets Manager を保持するか（false かつ compute_enabled=false で完全削除。長期放置コストゼロにする場合のみ false）"
+        required: false
+        type: boolean
+        default: true
 
 env:
   TF_WORKING_DIR: "infra/terraform"   # Change to e.g. "terraform" if .tf files are in a subdirectory
@@ -61,6 +66,16 @@ jobs:
           terraform init -backend-config=backend.hcl \
             -backend-config="key=workloads/${{ vars.WORKLOAD_NAME }}/${{ github.event.inputs.environment }}/additional_github_repos/${{ github.repository }}/terraform.tfstate"
 
+      - name: Resolve retain_on_idle
+        id: retain
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            prod) VALUE="${{ vars.RETAIN_ON_IDLE_PROD }}" ;;
+            test) VALUE="${{ vars.RETAIN_ON_IDLE_TEST }}" ;;
+          esac
+          INPUT="${{ github.event.inputs.retain_on_idle }}"
+          echo "value=${INPUT:-${VALUE:-true}}" >> "$GITHUB_OUTPUT"
+
       - name: Drain resources before destroy
         id: pre-destroy
         if: github.event.inputs.compute_enabled == 'false'
@@ -100,6 +115,7 @@ jobs:
         env:
           TF_VAR_environment:             ${{ github.event.inputs.environment }}
           TF_VAR_compute_enabled:         ${{ github.event.inputs.compute_enabled }}
+          TF_VAR_retain_on_idle:          ${{ steps.retain.outputs.value }}
           TF_VAR_docker_hub_username:     ${{ secrets.DOCKER_HUB_USERNAME }}
           TF_VAR_docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
         run: terraform apply -input=false -auto-approve
@@ -121,6 +137,52 @@ jobs:
           COMPUTE="${{ github.event.inputs.compute_enabled }}"
           VAR_NAME="COMPUTE_ENABLED_$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
           gh variable set "$VAR_NAME" --body "$COMPUTE"
+
+      - name: Record retain_on_idle state
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          VAR_NAME="RETAIN_ON_IDLE_$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
+          gh variable set "$VAR_NAME" --body "${{ steps.retain.outputs.value }}"
+
+      - name: Trigger deploy for empty ECR repositories
+        if: github.event.inputs.compute_enabled == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          ECR_URLS=$(terraform output -json ecr_urls 2>/dev/null || echo "null")
+          if [ "$ECR_URLS" = "null" ] || [ -z "$ECR_URLS" ]; then
+            echo "No ECR module in state, skipping auto-deploy"
+            exit 0
+          fi
+
+          SERVICES="aily-api aily-frontend mlflow"
+          DEPLOY_ARGS=()
+          for svc in $SERVICES; do
+            REPO=$(echo "$ECR_URLS" | jq -r --arg s "$svc" '.[$s]' | cut -d'/' -f2-)
+            COUNT=$(aws ecr list-images --repository-name "$REPO" \
+              --query 'length(imageIds)' --output text 2>/dev/null || echo "0")
+            if [ "$COUNT" = "0" ]; then
+              echo "$svc: no images, will trigger deploy"
+              KEY=$(echo "$svc" | tr '-' '_')
+              DEPLOY_ARGS+=("-f" "${KEY}=true")
+            else
+              echo "$svc: ${COUNT} image(s) found, skip"
+            fi
+          done
+
+          if [ "${#DEPLOY_ARGS[@]}" -eq 0 ]; then
+            echo "All ECR repositories have images, skipping auto-deploy"
+            exit 0
+          fi
+
+          echo "Triggering deploy.yml for empty repositories..."
+          gh workflow run deploy.yml \
+            -f "environment=$ENV" \
+            "${DEPLOY_ARGS[@]}"
 
       - name: Record bastion instance ID
         env:
