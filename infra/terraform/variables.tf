@@ -16,6 +16,12 @@ variable "compute_enabled" {
   description = "EKS・NAT・IRSA を作成するか（false で削除。RDS・S3 は保持）"
 }
 
+variable "retain_on_idle" {
+  type        = bool
+  default     = true
+  description = "compute_enabled=false の間も ECR・Secrets Manager 等の状態を保持するか（false かつ compute_enabled=false で完全削除。長期放置してコストをゼロにしたい場合に false にする）"
+}
+
 variable "eks_version" {
   type    = string
   default = "1.34"
