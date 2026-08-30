@@ -11,7 +11,6 @@ module "quantize" {
   name_prefix        = local.name_prefix
   github_repo        = "daigo424/aily"
   ml_data_bucket_arn = module.ml_data.bucket_arn
-  kms_key_arn        = module.ml_data.kms_key_arn
 }
 
 module "network" {
@@ -86,7 +85,6 @@ module "iam_eks" {
   oidc_provider_arn  = module.eks[0].oidc_provider_arn
   oidc_provider_url  = module.eks[0].oidc_provider_url
   ml_data_bucket_arn = module.ml_data.bucket_arn
-  kms_key_arn        = module.ml_data.kms_key_arn
 }
 
 module "iam_role_sa" {
@@ -97,7 +95,6 @@ module "iam_role_sa" {
   oidc_provider_arn  = module.eks[0].oidc_provider_arn
   oidc_provider_url  = module.eks[0].oidc_provider_url
   ml_data_bucket_arn = module.ml_data.bucket_arn
-  kms_key_arn        = module.ml_data.kms_key_arn
 }
 
 resource "aws_eks_addon" "s3_csi" {

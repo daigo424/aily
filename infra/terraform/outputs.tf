@@ -6,10 +6,6 @@ output "ml_data_bucket_arn" {
   value = module.ml_data.bucket_arn
 }
 
-output "ml_data_kms_key_arn" {
-  value = module.ml_data.kms_key_arn
-}
-
 output "cloudfront_url" {
   value       = module.ml_data.cloudfront_url
   description = "CloudFront URL for serving message attachments from S3"

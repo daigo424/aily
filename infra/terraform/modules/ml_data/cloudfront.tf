@@ -1,6 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-# CloudFront Origin Access Control for S3 (OAC supports SSE-KMS, unlike legacy OAI)
 resource "aws_cloudfront_origin_access_control" "ml_data" {
   name                              = "${var.name_prefix}-ml-data-oac"
   origin_access_control_origin_type = "s3"
@@ -66,37 +65,3 @@ data "aws_iam_policy_document" "ml_data_bucket_policy" {
   }
 }
 
-# KMS key policy: preserve root access + grant CloudFront Decrypt for SSE-KMS objects
-resource "aws_kms_key_policy" "ml_data" {
-  key_id = aws_kms_key.ml_data_key.id
-  policy = data.aws_iam_policy_document.ml_data_kms_policy.json
-}
-
-data "aws_iam_policy_document" "ml_data_kms_policy" {
-  statement {
-    sid    = "EnableIAMUserPermissions"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-    actions   = ["kms:*"]
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "AllowCloudFrontOACDecrypt"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.ml_data.arn]
-    }
-  }
-}

@@ -49,14 +49,6 @@ data "aws_iam_policy_document" "ml_workflow_policy" {
     ]
   }
 
-  statement {
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey",
-    ]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "ml_workflow" {
@@ -112,14 +104,6 @@ data "aws_iam_policy_document" "mlflow_policy" {
     ]
   }
 
-  statement {
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey",
-    ]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "mlflow" {
@@ -173,11 +157,6 @@ data "aws_iam_policy_document" "vllm_policy" {
     ]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt"]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "vllm" {
@@ -237,14 +216,6 @@ data "aws_iam_policy_document" "aily_api_policy" {
     resources = ["${var.ml_data_bucket_arn}/ml_data/app/message_attachments/*"]
   }
 
-  statement {
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey",
-    ]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "aily_api" {
@@ -300,11 +271,6 @@ data "aws_iam_policy_document" "langfuse_policy" {
     ]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "langfuse" {

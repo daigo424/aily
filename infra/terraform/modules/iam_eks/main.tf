@@ -94,11 +94,6 @@ data "aws_iam_policy_document" "argo_workflows_server_policy" {
     resources = ["${var.ml_data_bucket_arn}/logs/argo-workflows/*"]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt"]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "argo_workflows_server" {
@@ -144,16 +139,3 @@ resource "aws_iam_role_policy_attachment" "s3_csi" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }
 
-resource "aws_iam_role_policy" "s3_csi_kms" {
-  name = "${var.name_prefix}-s3-csi-kms-policy"
-  role = aws_iam_role.s3_csi.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
-      Resource = [var.kms_key_arn]
-    }]
-  })
-}

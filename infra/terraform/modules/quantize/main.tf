@@ -28,11 +28,6 @@ data "aws_iam_policy_document" "ec2_s3" {
     ]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "ec2_s3" {
@@ -146,11 +141,6 @@ data "aws_iam_policy_document" "gha" {
     ]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
-    resources = [var.kms_key_arn]
-  }
 }
 
 resource "aws_iam_role_policy" "gha" {
